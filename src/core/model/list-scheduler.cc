@@ -66,11 +66,24 @@ uint32_t ListScheduler::m_numSymEvents = 0;
 uint32_t ListScheduler::m_currPacketSize = 0;
 uint64_t ListScheduler::m_maxBound = 1200;
 uint64_t ListScheduler::m_symTime = 0;
-// Set m_isTransmitEvent to true if next inserted event is transmitting event
+Scheduler::EventSchedulers_t ListScheduler::m_currEventType = UNDEFINED;
+bool ListScheduler::debug = false;
+// set m_isTransmitEvent to true if next inserted event is transmitting event
 void
 ListScheduler::SetTransmitEvent (bool value)
 {
   m_isTransmitEvent = value;
+}
+void
+ListScheduler::SetEventType (EventSchedulers_t eventType)
+{
+  m_currEventType = eventType;
+}
+
+Scheduler::EventSchedulers_t
+ListScheduler::GetCurrEventType (void)
+{
+  return m_currEventType;
 }
 
 void
@@ -82,7 +95,7 @@ ListScheduler::PrintDebugInfo (uint32_t ev_id, uint32_t i_id)
   snprintf (buf, sizeof(buf), "Inserting event %u before %u", ev_id, i_id);
   s2e_warning (buf);
   memset (buf, 0, sizeof(buf));
-  
+
   s2e_warning ("Current event queue------");
   for (EventsI j = m_events.begin (); j != m_events.end (); j++)
     {
@@ -92,7 +105,6 @@ ListScheduler::PrintDebugInfo (uint32_t ev_id, uint32_t i_id)
         {
           s2e_get_example (&(j->key.m_originalTs), sizeof(uint64_t));
         }
-
       if (j->key.m_isTransEvent)
         {
           snprintf (buf, sizeof(buf), "Event %u : %llu ms - Transmission Event",
@@ -103,7 +115,6 @@ ListScheduler::PrintDebugInfo (uint32_t ev_id, uint32_t i_id)
           snprintf (buf, sizeof(buf), "Event %u : %llu ms",
             j->key.m_uid, j->key.m_originalTs);
         }
-
       s2e_warning (buf);
       memset (buf, 0, sizeof(buf));
 
@@ -116,6 +127,91 @@ ListScheduler::PrintDebugInfo (uint32_t ev_id, uint32_t i_id)
     }
   s2e_warning ("End of queue--------");
 }
+
+void
+ListScheduler::InsertIntoMainList_NextIsTimeout (const Event &ev)
+{
+  Event next = m_events.front ();
+  for (EventsI i = m_events.begin (); i != m_events.end (); i++)
+    {
+      // insert into pending list of timeout event
+      if (ev.key.m_uid < i->key.m_uid)
+        {
+          if (i->key.m_eventType == TIMEOUT && i->key.m_uid != next.key.m_uid)
+            {
+              i->pendingEvents.push_back (ev);
+              return;
+            }
+          else // i is not a timeout event, compare timestamp
+            {
+              if (ev.key.m_ts <= i->key.m_ts)
+                {
+                  m_events.insert (i, ev);
+                  return;
+                }
+            }
+        }
+      else // ev.id > i.id
+        {
+          if (i->key.m_eventType == TIMEOUT && i->key.m_uid != next.key.m_uid)
+            {
+              i->pendingEvents.push_back (ev);
+              return;
+            }
+          else
+            {
+              if (ev.key.m_ts < i->key.m_ts)
+                {
+                  m_events.insert (i, ev);
+                  return;
+                }
+            }
+        }
+    }
+  m_events.push_back (ev);
+}
+
+void
+ListScheduler::InsertIntoMainList (EventsI start, const Event &ev)
+{
+  for (EventsI i = start; i != m_events.end (); i++)
+    {
+      // insert into pending list of timeout event
+      if (ev.key.m_uid < i->key.m_uid)
+        {
+          if (i->key.m_eventType == TIMEOUT)
+            {
+              i->pendingEvents.push_back (ev);
+              return;
+            }
+          else
+            {
+              if (ev.key.m_ts <= i->key.m_ts)
+                {
+                  m_events.insert (i, ev);
+                  return;
+                }
+            }
+        }
+      else // ev.id > i.id
+        {
+          if (i->key.m_eventType == TIMEOUT)
+            {
+              i->pendingEvents.push_back (ev);
+              return;
+            }
+          else
+            {
+              if (ev.key.m_ts < i->key.m_ts)
+                {
+                  m_events.insert (i, ev);
+                  return;
+                }
+            }
+        }
+    }
+  m_events.push_back (ev);
+}
 // <M>
 
 void
@@ -123,7 +219,6 @@ ListScheduler::Insert (const Event &ev)
 {
   NS_LOG_FUNCTION (this << &ev);
 
-  // <M>
   // <M>
 //  uint64_t limit_ts = ev.key.m_ts;
 //  if (s2e_is_symbolic (&((const_cast<Event&>(ev)).key.m_ts),
@@ -139,31 +234,28 @@ ListScheduler::Insert (const Event &ev)
   char buf[64];
   memset (buf, 0, sizeof(buf));
 
-  if (!s2e_is_symbolic (&m_symTime, sizeof (uint64_t)))
-    {
-      s2e_make_symbolic (&m_symTime, sizeof (uint64_t), "Symbolic delay");
-      if (m_symTime > m_maxBound)
-      {
-        s2e_kill_state (0, "Out of range");
-      }
-    }
 
   // Only make m_ts of transmit events symbolic
   if (m_isTransmitEvent)
     {
           (const_cast<Event&>(ev)).key.m_isTransEvent = true;
           (const_cast<Event&>(ev)).key.m_packetSize = m_currPacketSize;
-          if (ev.key.m_packetSize > 58 && m_numSymEvents < 1)
+          if (ev.key.m_packetSize > 58 && m_numSymEvents < 1000)
             {
               m_numSymEvents++;
               snprintf (buf, sizeof(buf), "Setting event id %u to symbolic !!!!!",
                 ev.key.m_uid);
               s2e_warning (buf);
               memset (buf, 0, sizeof(buf));
-//              uint64_t sym_ts;
+              // New symbolic delay for each data packet
+              uint64_t sym_ts;
               s2e_enable_forking ();
-//              s2e_make_symbolic (&sym_ts, sizeof(uint64_t), "Time Stamp");
-              (const_cast<Event&>(ev)).key.m_ts += m_symTime;
+              s2e_make_symbolic (&sym_ts, sizeof(uint64_t), "Symbolic Delay");
+              if (sym_ts > m_maxBound)
+              {
+                s2e_kill_state (0, "Out of Range");
+              }
+              (const_cast<Event&>(ev)).key.m_ts += sym_ts;
 //            s2e_make_symbolic(const_cast<uint64_t *>(&(ev.key.m_ts)),
 //                                sizeof(uint64_t), "Timestamp");
             }
@@ -174,53 +266,17 @@ ListScheduler::Insert (const Event &ev)
     {
       (const_cast<Event&>(ev)).key.m_isTransEvent = false;
       (const_cast<Event&>(ev)).key.m_packetSize = 0;
-    }
+    } 
+  snprintf (buf, sizeof(buf), "New event %u to be inserted", ev.key.m_uid);
+  s2e_warning (buf);
+  memset (buf, 0, sizeof(buf));
 
-      snprintf (buf, sizeof(buf), "Event %u to be inserted", ev.key.m_uid);
-      s2e_warning (buf);
-      memset (buf, 0, sizeof(buf));
-      for (EventsI i = m_events.begin (); i != m_events.end (); i++)
-        {
-		  if (ev.key.m_uid < i->key.m_uid)
-            {
-              if (ev.key.m_ts <= i->key.m_ts)
-                {
-                  m_events.insert (i, ev);
-                  PrintDebugInfo (ev.key.m_uid, i->key.m_uid);
-                  return;
-                }
-            }
-          else // ev.id > i.id
-            {
-              if (ev.key.m_ts < i->key.m_ts)
-                {
-                  m_events.insert (i, ev);
-                  PrintDebugInfo (ev.key.m_uid, i->key.m_uid);
-                  return;
-                }
-            }
-        }
-//    snprintf (buf, sizeof(buf), "Inserting event id %u at the end of the queue",
-//      ev.key.m_uid);
-//    s2e_warning (buf);
-//    memset (buf, 0, sizeof(buf));
-                    
-  // <M>
+  const_cast<Event&>(ev).key.m_eventType = m_currEventType;
+  SetEventType (UNDEFINED);
+  InsertIntoMainList (m_events.begin (), ev);
 
-
-// Original code
-/*  for (EventsI i = m_events.begin (); i != m_events.end (); i++)
-    {
-      if (ev.key < i->key)
-        {
-          m_events.insert (i, ev);
-          return;
-        }
-    }
-*/
-
-  m_events.push_back (ev);
 }
+
 bool
 ListScheduler::IsEmpty (void) const
 {
@@ -239,6 +295,21 @@ ListScheduler::RemoveNext (void)
 {
   NS_LOG_FUNCTION (this);
   Event next = m_events.front ();
+  EventsI nextI = m_events.begin ();
+
+  // pending lst is not empty, should be a timeout event
+  if (!nextI->pendingEvents.empty())
+    {
+      uint64_t size = nextI->pendingEvents.size();
+      for (uint64_t i = 0; i < size; i++)
+        {
+          Event ev = nextI->pendingEvents.front ();
+          nextI->pendingEvents.pop_front ();
+          InsertIntoMainList_NextIsTimeout (ev);
+        }
+      next = m_events.front ();
+ }
+
   m_events.pop_front ();
 //  printf("Removing next event: %u, time: %llu \n", next.key.m_uid, next.key.m_ts);
   return next;
@@ -256,10 +327,46 @@ ListScheduler::Remove (const Event &ev)
       if (i->key.m_uid == ev.key.m_uid)
         {
           NS_ASSERT (ev.impl == i->impl);
+          while (!i->pendingEvents.empty())
+            {
+              Event pendingEv = i->pendingEvents.front ();
+              i->pendingEvents.pop_front ();
+              for (EventsI j = m_events.begin (); j!= m_events.end (); j++)
+                {
+                  if (j->key.m_uid == ev.key.m_uid)
+                    {
+                      j++;
+                      InsertIntoMainList (j, pendingEv);
+                      break;
+                    }
+                }
+            }
           m_events.erase (i);
           return;
         }
     }
+
+  // Event to be removed is initially not in the main list
+  for (EventsI i = m_events.begin (); i!= m_events.end (); i++)
+    {
+      if (i->key.m_uid == ev.key.m_uid)
+        {
+          m_events.erase (i);
+          return;
+        }
+      if (!i->pendingEvents.empty())
+        {
+          for (EventsI j = i->pendingEvents.begin (); j != i->pendingEvents.end (); j++)
+                      {
+              if (j->key.m_uid == ev.key.m_uid)
+                {
+                  i->pendingEvents.erase (j);
+                  return;
+                }
+            }
+        }
+    }
+
   NS_ASSERT (false);
 }
 

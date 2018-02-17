@@ -30,6 +30,10 @@
 
 #include <cmath>
 
+// <M>
+#include "list-scheduler.h"
+// <M>
+
 
 /**
  * \file
@@ -239,10 +243,14 @@ DefaultSimulatorImpl::Schedule (Time const &delay, EventImpl *event)
   ev.key.m_ts = (uint64_t) tAbsolute.GetTimeStep ();
   ev.key.m_context = GetContext ();
   ev.key.m_uid = m_uid;
+  // <M>
+  ev.key.m_eventType = ListScheduler::GetCurrEventType ();
+  // <M>
+  
   m_uid++;
   m_unscheduledEvents++;
   m_events->Insert (ev);
-  return EventId (event, ev.key.m_ts, ev.key.m_context, ev.key.m_uid);
+  return EventId (event, ev.key.m_ts, ev.key.m_context, ev.key.m_uid, ev.key.m_eventType);
 }
 
 void
@@ -287,10 +295,13 @@ DefaultSimulatorImpl::ScheduleNow (EventImpl *event)
   ev.key.m_ts = m_currentTs;
   ev.key.m_context = GetContext ();
   ev.key.m_uid = m_uid;
+  // <M>
+  ev.key.m_eventType = ListScheduler::GetCurrEventType ();
+  // <M>  
   m_uid++;
   m_unscheduledEvents++;
   m_events->Insert (ev);
-  return EventId (event, ev.key.m_ts, ev.key.m_context, ev.key.m_uid);
+  return EventId (event, ev.key.m_ts, ev.key.m_context, ev.key.m_uid, ev.key.m_eventType);
 }
 
 EventId

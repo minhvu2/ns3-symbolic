@@ -72,6 +72,17 @@ public:
    */
   static TypeId GetTypeId (void);
 
+  // <M>
+  typedef enum
+  {
+    SIMULATOR = 0,
+    NETWORK,
+    NODE,
+    TIMEOUT,
+    UNDEFINED
+  } EventSchedulers_t;
+  // <M>
+
   /**
    * \ingroup events
    * Structure for sorting and comparing Events.
@@ -85,6 +96,7 @@ public:
     uint64_t m_originalTs; /**< Original time stamp before making symbolic. */
     bool m_isTransEvent;   /**< True if event is a transmission event. */
     uint32_t m_packetSize;
+    EventSchedulers_t m_eventType;
     // <M>
   };
   /**
@@ -98,6 +110,9 @@ public:
   {
     EventImpl *impl;       /**< Pointer to the event implementation. */
     EventKey key;          /**< Key for sorting and ordering Events. */
+    // <M>
+    std::list<Event> pendingEvents;
+    // <M>
   };
 
   /** Destructor. */

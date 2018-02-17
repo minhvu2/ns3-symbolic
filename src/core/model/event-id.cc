@@ -49,6 +49,20 @@ EventId::EventId (const Ptr<EventImpl> &impl, uint64_t ts, uint32_t context, uin
 {
   NS_LOG_FUNCTION (this << impl << ts << context << uid);
 }
+
+// <M>
+EventId::EventId (const Ptr<EventImpl> &impl, uint64_t ts, uint32_t context, uint32_t uid,
+                  Scheduler::EventSchedulers_t eventType)
+  : m_eventImpl (impl),
+    m_ts (ts),
+    m_context (context),
+    m_uid (uid),
+    m_eventType (eventType)
+{
+  NS_LOG_FUNCTION (this << impl << ts << context << uid);
+}
+// <M>
+
 void
 EventId::Cancel (void)
 {
@@ -91,6 +105,14 @@ EventId::GetUid (void) const
   NS_LOG_FUNCTION (this);
   return m_uid;
 }
+// <M>
+Scheduler::EventSchedulers_t
+EventId::GetEventType (void) const
+{
+  NS_LOG_FUNCTION (this);
+  return m_eventType;
+}
+// <M>
 
 bool operator == (const EventId &a, const EventId &b)
 {

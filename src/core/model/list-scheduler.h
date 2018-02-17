@@ -63,8 +63,11 @@ public:
   void PrintDebugInfo (uint32_t ev_id, uint32_t i_id);
   static uint32_t m_numSymEvents;
   static uint32_t m_currPacketSize;
-  static uint64_t m_symTime; // symbolic time added to delay
-  static uint64_t m_maxBound;  // maximum bound of symTime
+  static uint64_t m_symTime;
+  static uint64_t m_maxBound;
+
+  static void SetEventType (EventSchedulers_t eventType);
+  static EventSchedulers_t GetCurrEventType (void);
   // <M>
 
   // Inherited
@@ -83,6 +86,13 @@ private:
   /** The event list. */
   Events m_events;
   
+  // <M>
+  static bool debug;
+  static Scheduler::EventSchedulers_t m_currEventType;
+
+  void InsertIntoMainList (EventsI start, const Scheduler::Event &ev);
+  void InsertIntoMainList_NextIsTimeout (const Scheduler::Event &ev);
+  // <M>  
 };
 
 } // namespace ns3

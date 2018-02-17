@@ -54,6 +54,11 @@
 #include <math.h>
 #include <algorithm>
 
+// <M>
+#include "ns3/scheduler.h"
+#include "ns3/list-scheduler.h"
+// <M>
+
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("TcpSocketBase");
@@ -2064,6 +2069,10 @@ TcpSocketBase::DoPeerClose (void)
     {
       NS_LOG_LOGIC ("TcpSocketBase " << this << " scheduling LATO1");
       Time lastRto = m_rtt->GetEstimate () + Max (m_clockGranularity, m_rtt->GetVariation () * 4);
+      
+      // <M>
+      ListScheduler::SetEventType (Scheduler::TIMEOUT);
+      // <M>      
       m_lastAckEvent = Simulator::Schedule (lastRto, &TcpSocketBase::LastAckTimeout, this);
     }
 }
@@ -2232,6 +2241,9 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
       NS_LOG_LOGIC ("Schedule retransmission timeout at time "
                     << Simulator::Now ().GetSeconds () << " to expire at time "
                     << (Simulator::Now () + m_rto.Get ()).GetSeconds ());
+      // <M>
+      ListScheduler::SetEventType (Scheduler::TIMEOUT);
+      // <M>                    
       m_retxEvent = Simulator::Schedule (m_rto, &TcpSocketBase::SendEmptyPacket, this, flags);
     }
 }
@@ -2484,6 +2496,10 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
       NS_LOG_LOGIC (this << " SendDataPacket Schedule ReTxTimeout at time " <<
                     Simulator::Now ().GetSeconds () << " to expire at time " <<
                     (Simulator::Now () + m_rto.Get ()).GetSeconds () );
+                    
+      // <M>
+      ListScheduler::SetEventType (Scheduler::TIMEOUT);
+      // <M>                    
       m_retxEvent = Simulator::Schedule (m_rto, &TcpSocketBase::ReTxTimeout, this);
     }
 
@@ -2708,6 +2724,9 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
         }
       else if (m_delAckEvent.IsExpired ())
         {
+          // <M>
+          ListScheduler::SetEventType (Scheduler::TIMEOUT);
+          // <M>			
           m_delAckEvent = Simulator::Schedule (m_delAckTimeout,
                                                &TcpSocketBase::DelAckTimeout, this);
           NS_LOG_LOGIC (this << " scheduled delayed ACK at " <<
@@ -2810,6 +2829,10 @@ TcpSocketBase::NewAck (SequenceNumber32 const& ack, bool resetRTO)
       NS_LOG_LOGIC (this << " Schedule ReTxTimeout at time " <<
                     Simulator::Now ().GetSeconds () << " to expire at time " <<
                     (Simulator::Now () + m_rto.Get ()).GetSeconds ());
+
+      // <M>
+      ListScheduler::SetEventType (Scheduler::TIMEOUT);
+      // <M>                    
       m_retxEvent = Simulator::Schedule (m_rto, &TcpSocketBase::ReTxTimeout, this);
     }
 
@@ -2918,6 +2941,10 @@ TcpSocketBase::PersistTimeout ()
   NS_LOG_LOGIC ("Schedule persist timeout at time "
                 << Simulator::Now ().GetSeconds () << " to expire at time "
                 << (Simulator::Now () + m_persistTimeout).GetSeconds ());
+
+  // <M>
+  ListScheduler::SetEventType (Scheduler::TIMEOUT);
+  // <M>                
   m_persistEvent = Simulator::Schedule (m_persistTimeout, &TcpSocketBase::PersistTimeout, this);
 }
 

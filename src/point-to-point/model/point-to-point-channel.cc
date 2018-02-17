@@ -24,6 +24,7 @@
 #include "ns3/log.h"
 // <M>
 #include "ns3/list-scheduler.h"
+#include "s2e.h"
 // <M>
 
 namespace ns3 {
@@ -110,7 +111,6 @@ PointToPointChannel::TransmitStart (
     m_link[wire].m_dst->GetNode()->GetId());
   s2e_warning (buf);
   memset (buf, 0, sizeof(buf));
-
 // <M>
 
   Simulator::ScheduleWithContext (m_link[wire].m_dst->GetNode ()->GetId (),
