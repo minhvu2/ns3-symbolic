@@ -62,7 +62,11 @@ public:
   static void SetTransmitEvent (bool value);  
   static void SetEventType (EventSchedulers_t eventType);
   static EventSchedulers_t GetCurrEventType (void);   
-  static void SetNumNodes (uint32_t n); 
+  static void SetNumNodes (uint32_t n);
+  
+  static void SetPathReduction (bool value);
+  static void SetWaitingList (bool value);
+  static void SetLocalList (bool value);    
   // <M>
 
   // Inherited
@@ -87,6 +91,11 @@ private:
   static uint64_t m_symTime;
   static uint64_t m_maxBound;
   
+  /** Set techniques to use. */
+  static bool m_usePathReduction;
+  static bool m_useWaitingList;
+  static bool m_useLocalList;  
+  
   static uint32_t m_currPacketSize;
   static bool m_isTransmitEvent;
   static uint32_t m_numNodes;
@@ -102,12 +111,16 @@ private:
   /** The node event lists, each node has its own list. */
   std::vector<Events> m_nodesEvents;
   
+  bool InsertPathReduction (EventsI i,const Scheduler::Event &ev);
   void InsertBackToMainList_FrontIsTimeout (Events &subList, const Scheduler::Event &ev);
   void InsertWaitingList (Events &subList, EventsI start, const Scheduler::Event &ev);
-  void CheckFrontEvent (Events &subList);
-  
   void InsertMultiList (Events &subList, const Scheduler::Event &ev);
-  void RemoveFromSubList (Events &subList, const Scheduler::Event &ev);
+  
+  void CheckFrontEvent (Events &subList);
+  Scheduler::Event RemoveNextLocalList (void);
+    
+  void RemoveLocalList (Events &subList, const Scheduler::Event &ev); 
+  void RemoveWaitingList (Events &subList, const Scheduler::Event &ev);
   void PrintDebugInfo (Events &subList, uint32_t ev_id, uint32_t i_id);
   // <M>
 };

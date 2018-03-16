@@ -65,12 +65,34 @@ uint32_t ListScheduler::m_numSymEvents = 0;
 uint64_t ListScheduler::m_maxBound = 1200;
 uint64_t ListScheduler::m_symTime = 0;
 
+bool ListScheduler::m_usePathReduction = true;
+bool ListScheduler::m_useWaitingList = true;
+bool ListScheduler::m_useLocalList = true;
+
 bool ListScheduler::m_isTransmitEvent = false;
 uint32_t ListScheduler::m_numNodes = 2;
 uint32_t ListScheduler::m_currPacketSize = 0;
 Scheduler::EventSchedulers_t ListScheduler::m_currEventType = UNDEFINED;
 bool ListScheduler::m_isNodeVectorInitialized = false;
 bool ListScheduler::debug = false;
+
+void
+ListScheduler::SetPathReduction (bool value)
+{
+  m_usePathReduction = value;
+}
+
+void
+ListScheduler::SetWaitingList (bool value)
+{
+  m_useWaitingList = value;
+}
+
+void
+ListScheduler::SetLocalList (bool value)
+{
+  m_useLocalList = value;
+}
 
 void
 ListScheduler::SetPacketSize (uint32_t packetSize)
@@ -145,6 +167,28 @@ ListScheduler::PrintDebugInfo (Events &subList, uint32_t ev_id, uint32_t i_id)
   s2e_warning ("End of queue--------");  
 }
 
+// Reduce the number of comparisions when inserting events
+bool
+ListScheduler::InsertPathReduction (EventsI i, const Event &ev)
+{
+  // m_uid are used as a tiebreaker when m_ts are equal 		
+  if (ev.key.m_uid < i->key.m_uid)
+	{
+      if (ev.key.m_ts <= i->key.m_ts)
+        {		  	
+	      return true;	
+	    }	
+    }
+  else // m_uid of ev is larger than that of i
+	{
+      if (ev.key.m_ts < i->key.m_ts)
+        {
+	      return true;	
+	    }		
+    }
+  return false;         	
+}
+
 // First time an event is inserted into a list
 void
 ListScheduler::InsertMultiList (Events &subList, const Event &ev)
@@ -154,97 +198,103 @@ ListScheduler::InsertMultiList (Events &subList, const Event &ev)
 	  printf ("InsertIntoSubList-1\n");  
 	}
 
-  bool waitingList = true;	
-  if (waitingList == false) //multi list without waiting list
-    {	  
-	  for (EventsI i = subList.begin (); i != subList.end (); i++)
-        {
-          if (ev.key.m_uid < i->key.m_uid)
-            {
-              if (ev.key.m_ts <= i->key.m_ts)
-               {
-                 subList.insert (i, ev);
-//                 PrintDebugInfo (subList, ev.key.m_uid, i->key.m_uid);              
-                 return;
-               }
-            }
-          else // ev.id > i.id
-            {
-              if (ev.key.m_ts < i->key.m_ts)
-                {
-                  subList.insert (i, ev);
-//                  PrintDebugInfo (subList, ev.key.m_uid, i->key.m_uid);
-                  return;
-                }
-            }
-        }
-      subList.push_back (ev);
-//      PrintDebugInfo (subList, ev.key.m_uid, ev.key.m_uid);
-      return;
+  if (m_useWaitingList == false) // Local lists without waiting lists
+    {
+	  if (m_usePathReduction == true)
+	    {	  
+		  for (EventsI i = subList.begin (); i != subList.end (); i++)
+			{
+			  if (InsertPathReduction (i, ev))
+				{
+				   subList.insert (i, ev);
+				   //PrintDebugInfo (subList, ev.key.m_uid, i->key.m_uid);
+				   return;
+				}
+			}
+		  subList.push_back (ev);
+		  //PrintDebugInfo (subList, ev.key.m_uid, ev.key.m_uid);
+		  return;
+		}  
+			  
+	  if (m_usePathReduction == false)
+	    {
+		  for (EventsI i = subList.begin (); i != subList.end (); i++)
+		    {
+		      if (ev.key < i->key)
+		        {
+		          subList.insert (i, ev);
+		          return;
+		        }
+		    }
+		  subList.push_back (ev);
+		  return;		
+	    }	
     }
-
-  if (waitingList == true) //with waiting list
+    
+  if (m_useWaitingList == true) // With waiting list
     {
 	  InsertWaitingList (subList, subList.begin (), ev);
 	  return;	
-	}            
+	}  
 }
 
 // Only use when we try to remove the next event and it has a waiting list
-// Have to extract events in that waiting list and insert into regular list
+// First we have to extract events in that waiting list and insert into regular list
 void
 ListScheduler::InsertBackToMainList_FrontIsTimeout (Events &subList, const Event &ev)
 {
-	Event next = subList.front ();
-    for (EventsI i = subList.begin (); i != subList.end (); i++)
+  Event next = subList.front ();
+  if (m_usePathReduction == true)
     {
-//	  printf ("Current event iterator %u \n", i->key.m_uid);	
-      if (ev.key.m_uid < i->key.m_uid)
-        {
-		  // insert to pending list of timeout event
-		  // if this timeout event is at the front, go to else
-		  // if we insert ev into pending list of a front timeout event,
+	  for (EventsI i = subList.begin (); i != subList.end (); i++)
+	    {
+		  //printf ("Current event iterator %u \n", i->key.m_uid);
+		  
+		  // Insert to pending list of timeout event
+		  // If this timeout event is at the front, do not insert
+		  // If we insert ev into pending list of a front timeout event,
 		  // there will be infinite loop
 		  if (i->key.m_eventType == TIMEOUT && i->key.m_uid != next.key.m_uid)
 		    {
 			  i->pendingEvents.push_back(ev);
-//			  printf ("Pushing event %u into pending list of event %u, size %lu \n", 
-//			           ev.key.m_uid, i->key.m_uid, i->pendingEvents.size());			  
+			  //printf ("Pushing event %u into pending list of event %u, size %lu \n", 
+			  //	           ev.key.m_uid, i->key.m_uid, i->pendingEvents.size());			  
 			  return;
-		    }
-		  else // i is not a timeout event, compare timestamp
-		    {  	
-              if (ev.key.m_ts <= i->key.m_ts)
-                {	
-                  subList.insert (i, ev);
-//                  printf ("Inserting event %u into main list\n", ev.key.m_uid);	
-//                  PrintDebugInfo (ev.key.m_uid, i->key.m_uid);
-                  return;
-                }
-            }  
-        }
-      else // ev.id > i.id
-        {
+			}
+		  // i is not a timeout event, compare timestamp		
+	      if (InsertPathReduction (i, ev))
+	        { 	
+			  subList.insert (i, ev);
+			  //printf ("Inserting event %u into main list\n", ev.key.m_uid);	
+              //PrintDebugInfo (ev.key.m_uid, i->key.m_uid);
+			  return;	                
+	        }
+	    }
+	  subList.push_back (ev);
+	  return;
+    }
+    
+  if (m_usePathReduction == false)
+    {
+	  for (EventsI i = subList.begin (); i != subList.end (); i++)
+	    {
 		  if (i->key.m_eventType == TIMEOUT && i->key.m_uid != next.key.m_uid)
 		    {
 			  i->pendingEvents.push_back(ev);
-//			  printf ("Pushing event %u into pending list of event %u, size %lu \n", 
-//			          ev.key.m_uid, i->key.m_uid, i->pendingEvents.size());
+			  //printf ("Pushing event %u into pending list of event %u, size %lu \n", 
+			  //	           ev.key.m_uid, i->key.m_uid, i->pendingEvents.size());			  
 			  return;
-		    }
-		  else
-		    {  
-              if (ev.key.m_ts < i->key.m_ts)
-                {
-                  subList.insert (i, ev);
-//                  printf ("Inserting event %u into main list\n", ev.key.m_uid);
-//                 PrintDebugInfo (ev.key.m_uid, i->key.m_uid);
-                  return;
-                }
-            }    
-        }
+			}
+						
+	      if (ev.key < i->key)
+	        {
+	          subList.insert (i, ev);
+	          return;
+	        }
+	    }
+	  subList.push_back (ev);
+	  return;		
     }
-  subList.push_back (ev);
 }	
 
 // Inserting event when there is waiting lists
@@ -258,52 +308,53 @@ ListScheduler::InsertWaitingList (Events &subList, EventsI start, const Event &e
       printf ("Inserting loop start at event id %u \n", start->key.m_uid);
     }  
    
-  for (EventsI i = start; i != subList.end (); i++)
-    {
-//	  printf ("Current event iterator %u \n", i->key.m_uid);	
-      if (ev.key.m_uid < i->key.m_uid)
-        {
+  if (m_usePathReduction == true)
+    {   
+	  for (EventsI i = start; i != subList.end (); i++)
+	    {
 		  // insert to pending list of timeout event	
 		  if (i->key.m_eventType == TIMEOUT)
 		    {
 			  i->pendingEvents.push_back(ev);
-//			  printf ("Pushing event %u into pending list of event %u, size %lu \n", 
-//			           ev.key.m_uid, i->key.m_uid, i->pendingEvents.size());			  
+			  //printf ("Pushing event %u into pending list of event %u, size %lu \n", 
+			  //	           ev.key.m_uid, i->key.m_uid, i->pendingEvents.size());			  
 			  return;
-		    }
-		  else // i is not a timeout event, compare timestamp
-		    {  	
-              if (ev.key.m_ts <= i->key.m_ts)
-                {	
-                  subList.insert (i, ev);
-//                  printf ("Inserting event %u into main list\n", ev.key.m_uid);	
-//                  PrintDebugInfo (ev.key.m_uid, i->key.m_uid);
-                  return;
-                }
-            }  
-        }
-      else // ev.m_uid > i.m_uid
-        {
+			}		
+		  //printf ("Current event iterator %u \n", i->key.m_uid);
+		  if (InsertPathReduction (i, ev))
+			{
+			  subList.insert (i, ev);
+			  printf ("Inserting event %u into sub list\n", ev.key.m_uid);
+			  //PrintDebugInfo (subList, ev.key.m_uid, i->key.m_uid);
+			  return;
+			}		
+	    }
+	  subList.push_back (ev);
+	  return;
+    }
+ 
+  if (m_usePathReduction == false)
+    {
+	  for (EventsI i = start; i != subList.end (); i++)
+	    {
 		  if (i->key.m_eventType == TIMEOUT)
 		    {
 			  i->pendingEvents.push_back(ev);
-//			  printf ("Pushing event %u into pending list of event %u, size %lu \n", 
-//			          ev.key.m_uid, i->key.m_uid, i->pendingEvents.size());
+			  //printf ("Pushing event %u into pending list of event %u, size %lu \n", 
+			  //	           ev.key.m_uid, i->key.m_uid, i->pendingEvents.size());			  
 			  return;
-		    }
-		  else
-		    {  
-              if (ev.key.m_ts < i->key.m_ts)
-                {
-                  subList.insert (i, ev);
-//                  printf ("Inserting event %u into main list\n", ev.key.m_uid);
-//                 PrintDebugInfo (ev.key.m_uid, i->key.m_uid);
-                  return;
-                }
-            }    
-        }
+			}
+						
+	      if (ev.key < i->key)
+	        {
+	          subList.insert (i, ev);
+	          //PrintDebugInfo (subList, ev.key.m_uid, i->key.m_uid);
+	          return;
+	        }
+	    }
+	  subList.push_back (ev);
+	  return;		
     }
-  subList.push_back (ev);
 }			
 
 void
@@ -373,26 +424,61 @@ ListScheduler::Insert (const Event &ev)
   s2e_warning (buf);
   memset (buf, 0, sizeof(buf));
 
-  // insert event into right list
-  const_cast<Event&>(ev).key.m_eventType = m_currEventType;
-  SetEventType (UNDEFINED);
-  if (ev.key.m_context != 0xffffffff)
+  // Insert events into right list if local lists are used  
+  if (m_useLocalList == true)
     {
-	  InsertMultiList (m_nodesEvents.at(ev.key.m_context), ev);
+      if (ev.key.m_context != 0xffffffff)
+	    {
+	      InsertMultiList (m_nodesEvents.at(ev.key.m_context), ev);
+	      return;	
+	    }
+      else
+        {	
+	      InsertMultiList (m_simEvents, ev);
+	      return;					
+        }
+    }
+  
+  // Waiting lists without local lists  
+  if (m_useWaitingList == true)
+    {
+	  InsertWaitingList (m_events, m_events.begin (), ev);
 	  return;	
 	}
-  else
-    {	
-	  InsertMultiList (m_simEvents, ev);
-	  return;					
+	
+  // No waiting list or local list used but with path reduction	
+  if (m_usePathReduction == true)
+    {
+	  for (EventsI i = m_events.begin (); i != m_events.end (); i++)
+	    {
+		  if (InsertPathReduction (i, ev))
+		    {
+			  m_events.insert (i, ev);
+			  return;	
+			}	
+		}
+	  m_events.push_back (ev);
+	  return;		
     }
-//  printf ("Fail to insert event %u", ev.key.m_uid);
+  
+  // No technique used
+  if (m_usePathReduction == false)
+    {
+	  for (EventsI i = m_events.begin (); i != m_events.end (); i++)
+	    {
+		  if (ev.key < i->key)
+		    {
+			  m_events.insert (i, ev);
+			  return;	
+			}	
+		}
+	  m_events.push_back (ev);
+	  return;		
+	}  	 
 
-/*// Use in waiting list without multi list 
-  const_cast<Event&>(ev).key.m_eventType = m_currEventType;
-  SetEventType (UNDEFINED);
-  InsertIntoMainList (m_events.begin (), ev);
-  */ 
+  snprintf (buf, sizeof (buf), "Fail to insert event id %u", ev.key.m_uid);
+  s2e_warning (buf);
+  memset (buf, 0, sizeof (buf));
 }
 
 bool
@@ -401,18 +487,23 @@ ListScheduler::IsEmpty (void) const
   NS_LOG_FUNCTION (this);
   
   // Check all lists
-  if (!m_simEvents.empty())
+  if (!m_simEvents.empty ())
     {
 	  return false;
 	}
   
-  for (unsigned j = 0; j < m_nodesEvents.size(); j++)
+  for (unsigned j = 0; j < m_nodesEvents.size (); j++)
     {
-      if (!(m_nodesEvents.at(j)).empty())
+      if (!(m_nodesEvents.at (j)).empty ())
         {
 		  return false;
 		}  	 	
 	}
+	
+  if (!m_events.empty ())
+    {
+	  return false;	
+	}	
   	  	 		  	
   return true;
 
@@ -425,26 +516,37 @@ ListScheduler::PeekNext (void) const
   NS_LOG_FUNCTION (this);
 //  printf ("PeekNext-1-Start \n");
   
-  Event i, next;
-  
-  // Last event should be in simulator list
-  if (!m_simEvents.empty ())
+  Event next;
+  if (m_useLocalList == true)
     {
-	  next = m_simEvents.front();	
-    }	
-  
-  for (unsigned j = 0; j < m_nodesEvents.size(); j++)
-    {
-      if (!(m_nodesEvents.at(j)).empty())
-      {
-	    i = (m_nodesEvents.at(j)).front ();
-	    if (next.key.m_ts > i.key.m_ts)
+	  Event i;
+	  
+	  // Last event should be in simulator list
+	  // Todo: double check this
+	  if (!m_simEvents.empty ())
 	    {
-	      next = i; 	   
-	    }	  	
-	  }		  
-    }	       
-  return next;
+		  next = m_simEvents.front();	
+	    }	
+	  
+	  for (unsigned j = 0; j < m_nodesEvents.size(); j++)
+	    {
+	      if (!(m_nodesEvents.at(j)).empty())
+	      {
+		    i = (m_nodesEvents.at(j)).front ();
+		    if (next.key.m_ts > i.key.m_ts)
+		    {
+		      next = i; 	   
+		    }	  	
+		  }		  
+	    }	       
+    }
+    
+  if (m_useLocalList == false)
+    {
+	  next = m_events.front ();	
+	}
+  
+  return next;		
 }
 
 void
@@ -452,15 +554,16 @@ ListScheduler::CheckFrontEvent (Events &subList)
 {
   if (debug)
     {
-      printf ("---RemoveNext-1-Start \n");
-      printf ("Main list before removing next event size %u \n", subList.size());  
+      //printf ("---RemoveNext-1-Start \n");
+      //printf ("Main list before removing next event size %u \n", subList.size());  
       PrintDebugInfo (subList, 1, 1);
     }
     
   if (subList.empty())
     {
 	  return;	
-	}  
+	}
+	  
   EventsI nextI = subList.begin ();
 	
   if (!nextI->pendingEvents.empty ()) // pending list is not empty, should be a timeout event
@@ -473,48 +576,47 @@ ListScheduler::CheckFrontEvent (Events &subList)
 	  // when a pending event is poped and pushed into the same pending list infinitely
       for (uint64_t i = 0; i < size; i++)
 	    {
-//		  printf ("-RemoveNext-2-Whileloop \n");
-//		  printf ("-next event id %u pending list in RemoveNext---", nextI->key.m_uid);
-//		  PrintDebugInfo (nextI->pendingEvents, 1, 1);	
+		  //printf ("-RemoveNext-2-Whileloop \n");
+		  //printf ("-next event id %u pending list in RemoveNext---", nextI->key.m_uid);
+		  //PrintDebugInfo (nextI->pendingEvents, 1, 1);	
           Event ev = nextI->pendingEvents.front ();
 	      nextI->pendingEvents.pop_front();
-//	      printf ("About to insert event id %u- %lu ms to main list \n",
-//		           ev.key.m_uid, ev.key.m_ts);
+	      //printf ("About to insert event id %u- %lu ms to main list \n",
+		  //         ev.key.m_uid, ev.key.m_ts);
 	      InsertBackToMainList_FrontIsTimeout (subList, ev);		      		      	
         }   				
     }
     
   if (debug)
     {
-	  printf ("Main list after extracting events from waiting list size %u \n", subList.size());  
+	  //printf ("Main list after extracting events from waiting list size %u \n", subList.size());  
       PrintDebugInfo (subList, 1, 1); 	
 	}	      	
 }
 
 Scheduler::Event
-ListScheduler::RemoveNext (void)
+ListScheduler::RemoveNextLocalList (void)
 {
-  NS_LOG_FUNCTION (this);
-  
-  bool waitingList = true;
-  // if using waiting list, first check if any front event is timeout one
-  // if there is, extract events from its waiting list
-  if (waitingList) // multi list and waiting list
+  // If using waiting list, first check if any front event is timeout one
+  // If there is, extract events from its waiting list
+  if (m_useWaitingList == true) // local lists and waiting lists
     {
 	  CheckFrontEvent (m_simEvents);
 	  for (unsigned i = 0; i < m_nodesEvents.size(); i++)
 	    {
 		  CheckFrontEvent (m_nodesEvents.at (i));	
 		}	
-	}      
+	}
 
+  // After extracting events from waiting list of all front events,
+  // find the next event to execute
   Event next;
   bool foundNext = true;
   if (!m_simEvents.empty ())
     {	  
 	  next = m_simEvents.front();
-//	  printf ("Front simulator event id %u - %lu ms - node %u\n",
-//	          next.key.m_uid, next.key.m_ts, next.key.m_context);	
+	  //printf ("Front simulator event id %u - %lu ms - node %u\n",
+	  //        next.key.m_uid, next.key.m_ts, next.key.m_context);	
 	  for (unsigned i = 0; i < m_nodesEvents.size (); i++)
 	    {
 		  // simulator events have impact latency of 0	
@@ -523,9 +625,9 @@ ListScheduler::RemoveNext (void)
 		    {
 			  if (debug)
 			    {	
-			      printf ("Next event is not a simulator one.\n");
-			      printf ("Front event id %u - %llu ms at node %u.\n", m_nodesEvents.at (i).front ().key.m_uid,
-			              m_nodesEvents.at (i).front ().key.m_ts, m_nodesEvents.at (i).front ().key.m_context);
+			      //printf ("Next event is not a simulator one.\n");
+			      //printf ("Front event id %u - %lu ms at node %u.\n", m_nodesEvents.at (i).front ().key.m_uid,
+			      //        m_nodesEvents.at (i).front ().key.m_ts, m_nodesEvents.at (i).front ().key.m_context);
 			    }	
 			  foundNext = false;
 			  break;	
@@ -533,22 +635,22 @@ ListScheduler::RemoveNext (void)
 		}
 	}
 
-  if (foundNext)
+  if (foundNext && !m_simEvents.empty ())
     {
-//      printf ("Removing next event: %u, time: %lu \n", next.key.m_uid, next.key.m_ts);
+      //printf ("Removing next simulator event: %u - %llu ms \n", next.key.m_uid, next.key.m_ts);
+      //PrintDebugInfo (m_simEvents, 1, 1);
       m_simEvents.pop_front ();
       return next;
-    }
-// foundNext is false here so set it to true at the beginning of for loop    		
-// next eligible event is in one of the node lists  
+    }		
+// Next eligible event is in one of the node lists  
   for (unsigned i = 0; i < m_nodesEvents.size (); i++)
     {
 	  foundNext = true;	
       if (!m_nodesEvents.at (i).empty ())
         {
 		  next = m_nodesEvents.at (i).front ();
-		  // pick the front event of a non-empty node list
-		  // compare it to the front event of other node lists
+		  // Pick the front event of a non-empty node list
+		  // Compare it to the front event of other node lists
 		  for (unsigned j = 0; j < m_nodesEvents.size (); j++)
 		    {
 			  if (i != j && !m_nodesEvents.at (j). empty ()
@@ -560,54 +662,73 @@ ListScheduler::RemoveNext (void)
 			}
 		  if (foundNext)
 		    {
-//			  printf ("Removing next event: %u, time: %lu \n", next.key.m_uid, next.key.m_ts);
+			  //printf ("Removing next event: %u - %llu ms, i = %u \n", next.key.m_uid, next.key.m_ts, i);
+			  //printf ("Node list %u size %lu", i, m_nodesEvents.at (i).size ());
 			  m_nodesEvents.at (i).pop_front ();	
 			  return next;	
 			}		
 		}  	 	
 	}
-  	  	 		  	    
-//  printf ("Error: Shoud not reach this statement \n");
+  	  	 		 	    
+  //printf ("Error: Shoud not reach this statement \n");
   return next;
 }
 
-void
-ListScheduler::RemoveFromSubList (Events &subList, const Event &ev)
+Scheduler::Event
+ListScheduler::RemoveNext (void)
 {
-  // If there is no waiting list, use this	
-/*
-  for (EventsI i = subList.begin (); i != subList.end (); i++)
+  NS_LOG_FUNCTION (this);
+  
+  Event next;
+  if (m_useLocalList == true)
     {
-      if (i->key.m_uid == ev.key.m_uid)
-        {
-          NS_ASSERT (ev.impl == i->impl);
-          subList.erase (i);
-//          printf ("Removing event: %u, time: %lu \n", ev.key.m_uid, ev.key.m_ts);
-          return;
-        }
-    }
-*/    
-  //Event to be removed is intially in the main list	
+	  next = RemoveNextLocalList ();
+	  return next; 	
+	}
+	
+  if (m_useWaitingList == true)
+    {
+	  CheckFrontEvent (m_events);
+	  next = m_events.front ();
+	  m_events.pop_front ();
+	  return next;	
+	}
+
+  if (m_useWaitingList == false)
+    {
+	  next = m_events.front ();
+	  m_events.pop_front ();
+	  return next;			
+	}		
+
+  printf ("Error: Should not reach this statement \n");
+  return next;  
+}
+
+void
+ListScheduler::RemoveWaitingList (Events &subList, const Event &ev)
+{
+  // Event to be removed is intially in the main list	
   for (EventsI i = subList.begin (); i != subList.end (); i++)
     {		
       if (i->key.m_uid == ev.key.m_uid)
         {
           NS_ASSERT (ev.impl == i->impl);
-//          NS_ASSERT (i->key.m_eventType == TIMEOUT);
+          //NS_ASSERT (i->key.m_eventType == TIMEOUT);
                   
           while (!i->pendingEvents.empty ())
             {
-//			  printf ("Remove-1, i id %u - %lu ms, pending list size %lu \n",
-//			          i->key.m_uid, i->key.m_ts, i->pendingEvents.size());
+			  //printf ("Remove-1, i id %u - %lu ms, pending list size %lu \n",
+			  //        i->key.m_uid, i->key.m_ts, i->pendingEvents.size());
 			  if (debug)
 			  {        
-			    printf ("-next pending list in Remove---");
+			    //printf ("-next pending list in Remove---");
 		        PrintDebugInfo (i->pendingEvents, 1, 1);
 		      }        	
 		      Event pendingEv = i->pendingEvents.front ();
 		      i->pendingEvents.pop_front ();
-		      // event ev is removed, insert pending events from ev++
-		      // do not need to compare pendingEv with ev
+		      // Event ev is removed, insert pending events from ev++
+		      // Do not need to compare pendingEv with ev
 		      for (EventsI j = subList.begin (); j != subList.end (); j++)
 		        {
 				  if (j->key.m_uid == ev.key.m_uid)
@@ -616,41 +737,65 @@ ListScheduler::RemoveFromSubList (Events &subList, const Event &ev)
 					  InsertWaitingList (subList, j, pendingEv);
 					  break;	
 					}	  
-		        }	  
-		      
-//		      printf ("i id %u - %lu ms \n", i->key.m_uid, i->key.m_ts);
-//		      printf ("i id %u - %lu ms, pending list size %lu \n", 
-//		              i->key.m_uid, i->key.m_ts, i->pendingEvents.size());	        
+		        }	  		      
+		      //printf ("i id %u - %lu ms \n", i->key.m_uid, i->key.m_ts);
+		      //printf ("i id %u - %lu ms, pending list size %lu \n", 
+		      //        i->key.m_uid, i->key.m_ts, i->pendingEvents.size());	        
 		    }	
           
           subList.erase (i);
-//          printf ("Finish Removing cancelled event: %u, time: %lu \n", i->key.m_uid, i->key.m_ts);
+          //printf ("Finish Removing cancelled event: %u, time: %lu \n", i->key.m_uid, i->key.m_ts);
           return;
         }
     }
     
-    // Event to be removed is initially not in the main list
-    for (EventsI i = subList.begin (); i != subList.end (); i++)
-      {
-		// Event to be removed is just inserted into main list by above loop  
-		if (i->key.m_uid == ev.key.m_uid)
-		  {
-			subList.erase (i);
-			return;  
-		  }
-		// Event to be removed is in some pending list  
-		if (!i->pendingEvents.empty())
-		  {
-			for (EventsI j = i->pendingEvents.begin (); j != i->pendingEvents.end(); j++)
-			  {
-				if (j->key.m_uid == ev.key.m_uid)
-				  {
-					i->pendingEvents.erase(j); 
-					return; 
-				  }	    
-			  }	    
-		  }	   	    
-	  }    
+  // Event to be removed is initially not in the main list
+  for (EventsI i = subList.begin (); i != subList.end (); i++)
+    {
+	  // Event to be removed is just inserted into main list by above loop
+	  // Todo: check whether this if is redundant  
+	  if (i->key.m_uid == ev.key.m_uid)
+		{
+		  subList.erase (i);
+		  return;  
+		}
+	  // Event to be removed is in some waiting list  
+	  if (!i->pendingEvents.empty())
+		{
+		  for (EventsI j = i->pendingEvents.begin (); j != i->pendingEvents.end(); j++)
+		    {
+			  if (j->key.m_uid == ev.key.m_uid)
+			    {
+			  	  i->pendingEvents.erase(j); 
+				  return; 
+				}	    
+			}	    
+		}	   	    
+	}	
+}
+
+void
+ListScheduler::RemoveLocalList (Events &subList, const Event &ev)
+{
+  if (m_useWaitingList == true)
+    {
+	  RemoveWaitingList (subList, ev);
+	  return;	
+	}
+
+  if (m_useWaitingList == false)		
+    {	
+	  for (EventsI i = subList.begin (); i != subList.end (); i++)
+	    {
+	      if (i->key.m_uid == ev.key.m_uid)
+	        {
+	          NS_ASSERT (ev.impl == i->impl);
+	          subList.erase (i);
+	          //printf ("Removing event: %u, time: %lu \n", ev.key.m_uid, ev.key.m_ts);
+	          return;
+	        }
+	    }
+    }  
 }
 
 void
@@ -658,16 +803,41 @@ ListScheduler::Remove (const Event &ev)
 {
   NS_LOG_FUNCTION (this << &ev);
   
-  if (ev.key.m_context != 0xffffffff)
-    {	  		
-	  RemoveFromSubList (m_nodesEvents.at(ev.key.m_context), ev);
-	  return;	
-	}
-  else
-    {	
-	  RemoveFromSubList (m_simEvents, ev);
-	  return;					
+  // Local lists are used, remove the event from the corresponding local list
+  if (m_useLocalList == true)
+    {
+	  if (ev.key.m_context != 0xffffffff)
+	    {	  		
+		  RemoveLocalList (m_nodesEvents.at(ev.key.m_context), ev);
+		  return;	
+		}
+	  else
+	    {	
+		  RemoveLocalList (m_simEvents, ev);
+		  return;					
+	    }
     }
+  
+  // No local list, only waiting list  
+  if (m_useWaitingList == true)
+    {
+	  RemoveWaitingList (m_events, ev);
+	  return;	
+	}    
+
+  // At this point, local lists and waiting lists are not used
+  if (m_useWaitingList == false)
+    {
+	  for (EventsI i = m_events.begin (); i != m_events.end (); i++)
+		{
+		  if (i->key.m_uid == ev.key.m_uid)
+			{
+			  NS_ASSERT (ev.impl == i->impl);
+			  m_events.erase (i);
+			  return;
+			}
+		}
+	}  
      
   NS_ASSERT (false);
 }

@@ -131,6 +131,8 @@ private:
   // <M>
   /** Timestamp of the current event in each list. Local clock. */
   std::vector<uint64_t> m_localCurrentTs;
+  /** Indication of which implementations to use. */
+  std::vector<bool> m_implementations;
   /** Number of nodes. */
   uint32_t m_numNodes;
   // <M>

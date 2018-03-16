@@ -78,7 +78,14 @@ DefaultSimulatorImpl::DefaultSimulatorImpl ()
   for (uint32_t i=0; i < m_numNodes; i++)
     {
 	  m_localCurrentTs.push_back (0);	
-    }	 
+    }
+  m_implementations.push_back (true); // three to two paths per iteration
+  m_implementations.push_back (true); // remove inactive events
+  m_implementations.push_back (true); // waiting list
+  m_implementations.push_back (true); // local lists and clocks
+  ListScheduler::SetPathReduction (m_implementations.at (0));
+  ListScheduler::SetWaitingList (m_implementations.at (2));
+  ListScheduler::SetLocalList (m_implementations.at (3));  	 
   // <M>
   m_currentContext = 0xffffffff;
   m_unscheduledEvents = 0;
@@ -356,7 +363,7 @@ DefaultSimulatorImpl::ScheduleWithContext (uint32_t prevContext, uint32_t contex
 //      Time tAbsolute = delay + TimeStep (m_currentTs);
 // <M>
       Time tAbsolute;
-      if (GetContext () != 0xffffffff)
+      if (prevContext != 0xffffffff)
         {
 	      tAbsolute = delay + TimeStep (m_localCurrentTs.at (prevContext));	
 	      NS_ASSERT (tAbsolute >= TimeStep (m_localCurrentTs.at (prevContext)));
@@ -513,11 +520,15 @@ DefaultSimulatorImpl::Cancel (const EventId &id)
 {
   if (!IsExpired (id))
     {
-//      id.PeekEventImpl ()->Cancel ();
-      // <M>
-//      printf ("Cancelling and removing event id %u - %lu ms in DefaultSimulatorImpl\n", id.GetUid(), id.GetTs());
-      Remove (id);
-      // <M>
+	  if (m_implementations.at (1)) // remove inactive events
+	    {
+//		  printf ("Cancelling and removing event id %u - %lu ms in DefaultSimulatorImpl\n", id.GetUid(), id.GetTs());
+          Remove (id);
+		}
+	  else
+	    {
+		  id.PeekEventImpl ()->Cancel ();	
+		}	
     }
 }
 
