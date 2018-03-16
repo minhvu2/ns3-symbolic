@@ -73,6 +73,13 @@ DefaultSimulatorImpl::DefaultSimulatorImpl ()
   // before ::Run is entered, the m_currentUid will be zero
   m_currentUid = 0;
   m_currentTs = 0;
+  // <M>
+  m_numNodes = 2;
+  for (uint32_t i=0; i < m_numNodes; i++)
+    {
+	  m_localCurrentTs.push_back (0);	
+    }	 
+  // <M>
   m_currentContext = 0xffffffff;
   m_unscheduledEvents = 0;
   m_eventsWithContextEmpty = true;
@@ -120,6 +127,10 @@ DefaultSimulatorImpl::SetScheduler (ObjectFactory schedulerFactory)
   NS_LOG_FUNCTION (this << schedulerFactory);
   Ptr<Scheduler> scheduler = schedulerFactory.Create<Scheduler> ();
 
+  // <M>
+//  printf ("Setting new scheduler !!!!!!!!");
+  // <M>
+
   if (m_events != 0)
     {
       while (!m_events->IsEmpty ())
@@ -142,16 +153,33 @@ void
 DefaultSimulatorImpl::ProcessOneEvent (void)
 {
   Scheduler::Event next = m_events->RemoveNext ();
+  // <M>
+//  printf ("After removing next event id %u - %lu ms in ProcessOneEvent-DefaultSimulatorImpl, current ts %lu ms\n", 
+//          next.key.m_uid, next.key.m_ts, m_currentTs);
+  // <M>
 
-  NS_ASSERT (next.key.m_ts >= m_currentTs);
+//  NS_ASSERT (next.key.m_ts >= m_currentTs);
   m_unscheduledEvents--;
 
   NS_LOG_LOGIC ("handle " << next.key.m_ts);
-  m_currentTs = next.key.m_ts;
+//  m_currentTs = next.key.m_ts;
+  
+  // Set current timestamp for corresponding list
+  if (next.key.m_context != 0xffffffff)
+    {
+      m_localCurrentTs.at (next.key.m_context) = next.key.m_ts;		  	
+	}
+  else //next event is in the simulator list
+    {
+	  m_currentTs = next.key.m_ts;
+	}	
   m_currentContext = next.key.m_context;
   m_currentUid = next.key.m_uid;
+//  printf ("ProcessOneEvent-1\n");
   next.impl->Invoke ();
   next.impl->Unref ();
+
+//  printf ("ProcessOneEvent-2\n");
 
   ProcessEventsWithContext ();
 }
@@ -169,6 +197,8 @@ DefaultSimulatorImpl::ProcessEventsWithContext (void)
     {
       return;
     }
+
+//  printf ("ProcessEventsWithContext-1 \n");
 
   // swap queues
   EventsWithContext eventsWithContext;
@@ -190,6 +220,8 @@ DefaultSimulatorImpl::ProcessEventsWithContext (void)
        m_unscheduledEvents++;
        m_events->Insert (ev);
     }
+    
+//  printf ("ProcessEventsWithContext-2 \n");  
 }
 
 void
@@ -234,15 +266,29 @@ DefaultSimulatorImpl::Schedule (Time const &delay, EventImpl *event)
   NS_LOG_FUNCTION (this << delay.GetTimeStep () << event);
   NS_ASSERT_MSG (SystemThread::Equals (m_main), "Simulator::Schedule Thread-unsafe invocation!");
 
-  Time tAbsolute = delay + TimeStep (m_currentTs);
+//  Time tAbsolute = delay + TimeStep (m_currentTs);
+// <M>
+// Set scheduled timestamp based on local clocks
+  Time tAbsolute;
+  if (GetContext () != 0xffffffff)
+    {
+	  tAbsolute = delay + TimeStep (m_localCurrentTs.at (GetContext ()));	
+	  NS_ASSERT (tAbsolute >= TimeStep (m_localCurrentTs.at (GetContext ())));
+	}
+  else
+    {
+	  tAbsolute = delay + TimeStep (m_currentTs);
+	  NS_ASSERT (tAbsolute >= TimeStep (m_currentTs));	
+	}	
 
   NS_ASSERT (tAbsolute.IsPositive ());
-  NS_ASSERT (tAbsolute >= TimeStep (m_currentTs));
+//  NS_ASSERT (tAbsolute >= TimeStep (m_currentTs));
   Scheduler::Event ev;
   ev.impl = event;
   ev.key.m_ts = (uint64_t) tAbsolute.GetTimeStep ();
   ev.key.m_context = GetContext ();
   ev.key.m_uid = m_uid;
+  
   // <M>
   ev.key.m_eventType = ListScheduler::GetCurrEventType ();
   // <M>
@@ -260,12 +306,25 @@ DefaultSimulatorImpl::ScheduleWithContext (uint32_t context, Time const &delay, 
 
   if (SystemThread::Equals (m_main))
     {
-      Time tAbsolute = delay + TimeStep (m_currentTs);
+//      Time tAbsolute = delay + TimeStep (m_currentTs);
+// <M>
+      Time tAbsolute;
+      if (GetContext () != 0xffffffff)
+        {
+	      tAbsolute = delay + TimeStep (m_localCurrentTs.at (context));	
+	      NS_ASSERT (tAbsolute >= TimeStep (m_localCurrentTs.at (context)));
+	    }
+      else
+        {
+	      tAbsolute = delay + TimeStep (m_currentTs);
+	      NS_ASSERT (tAbsolute >= TimeStep (m_currentTs));	
+	    }	
       Scheduler::Event ev;
       ev.impl = event;
       ev.key.m_ts = (uint64_t) tAbsolute.GetTimeStep ();
       ev.key.m_context = context;
       ev.key.m_uid = m_uid;
+      
       m_uid++;
       m_unscheduledEvents++;
       m_events->Insert (ev);
@@ -285,6 +344,54 @@ DefaultSimulatorImpl::ScheduleWithContext (uint32_t context, Time const &delay, 
     }
 }
 
+// <M>
+// For events that change their context, use local clock of previous node
+void
+DefaultSimulatorImpl::ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, EventImpl *event)
+{
+  NS_LOG_FUNCTION (this << context << delay.GetTimeStep () << event);
+
+  if (SystemThread::Equals (m_main))
+    {
+//      Time tAbsolute = delay + TimeStep (m_currentTs);
+// <M>
+      Time tAbsolute;
+      if (GetContext () != 0xffffffff)
+        {
+	      tAbsolute = delay + TimeStep (m_localCurrentTs.at (prevContext));	
+	      NS_ASSERT (tAbsolute >= TimeStep (m_localCurrentTs.at (prevContext)));
+	    }
+      else
+        {
+	      tAbsolute = delay + TimeStep (m_currentTs);
+	      NS_ASSERT (tAbsolute >= TimeStep (m_currentTs));	
+	    }
+      Scheduler::Event ev;
+      ev.impl = event;
+      ev.key.m_ts = (uint64_t) tAbsolute.GetTimeStep ();
+      ev.key.m_context = context;
+      ev.key.m_uid = m_uid;
+      
+      m_uid++;
+      m_unscheduledEvents++;
+      m_events->Insert (ev);
+    }
+  else
+    {
+      EventWithContext ev;
+      ev.context = context;
+      // Current time added in ProcessEventsWithContext()
+      ev.timestamp = delay.GetTimeStep ();
+      ev.event = event;
+      {
+        CriticalSection cs (m_eventsWithContextMutex);
+        m_eventsWithContext.push_back(ev);
+        m_eventsWithContextEmpty = false;
+      }
+    }
+}
+// <M>
+
 EventId
 DefaultSimulatorImpl::ScheduleNow (EventImpl *event)
 {
@@ -292,12 +399,23 @@ DefaultSimulatorImpl::ScheduleNow (EventImpl *event)
 
   Scheduler::Event ev;
   ev.impl = event;
-  ev.key.m_ts = m_currentTs;
+//  ev.key.m_ts = m_currentTs;
+// <M>
+  if (GetContext () != 0xffffffff)
+    {
+	  ev.key.m_ts = m_localCurrentTs.at (GetContext());	
+	}
+  else
+    {
+	  ev.key.m_ts = m_currentTs;
+	}
   ev.key.m_context = GetContext ();
   ev.key.m_uid = m_uid;
+  
   // <M>
   ev.key.m_eventType = ListScheduler::GetCurrEventType ();
-  // <M>  
+  // <M>
+
   m_uid++;
   m_unscheduledEvents++;
   m_events->Insert (ev);
@@ -319,7 +437,16 @@ Time
 DefaultSimulatorImpl::Now (void) const
 {
   // Do not add function logging here, to avoid stack overflow
-  return TimeStep (m_currentTs);
+//  return TimeStep (m_currentTs);
+// <M>
+  if (GetContext() != 0xffffffff)
+    {
+	  return TimeStep (m_localCurrentTs.at (GetContext ()));	
+	}
+  else
+    {
+      return TimeStep (m_currentTs);
+	}	
 }
 
 Time 
@@ -331,7 +458,16 @@ DefaultSimulatorImpl::GetDelayLeft (const EventId &id) const
     }
   else
     {
-      return TimeStep (id.GetTs () - m_currentTs);
+//      return TimeStep (id.GetTs () - m_currentTs);
+// <M>
+      if (id.GetContext () != 0xffffffff)
+        {
+	      return TimeStep (id.GetTs () - m_localCurrentTs.at (id.GetContext ()));	
+	    }
+      else
+        {
+          return TimeStep (id.GetTs() - m_currentTs);
+	    }	
     }
 }
 
@@ -360,6 +496,10 @@ DefaultSimulatorImpl::Remove (const EventId &id)
   event.key.m_ts = id.GetTs ();
   event.key.m_context = id.GetContext ();
   event.key.m_uid = id.GetUid ();
+  
+  // <M>
+  event.key.m_eventType = id.GetEventType ();
+  // <M>
   m_events->Remove (event);
   event.impl->Cancel ();
   // whenever we remove an event from the event list, we have to unref it.
@@ -375,9 +515,9 @@ DefaultSimulatorImpl::Cancel (const EventId &id)
     {
 //      id.PeekEventImpl ()->Cancel ();
       // <M>
+//      printf ("Cancelling and removing event id %u - %lu ms in DefaultSimulatorImpl\n", id.GetUid(), id.GetTs());
       Remove (id);
       // <M>
-
     }
 }
 
@@ -401,9 +541,20 @@ DefaultSimulatorImpl::IsExpired (const EventId &id) const
         }
       return true;
     }
+// <M>
+  uint64_t currentTs;
+  if (GetContext () != 0xffffffff)
+    {
+	  currentTs = m_localCurrentTs.at (GetContext ());	
+	}
+  else
+    {
+	  currentTs = m_currentTs;	
+	}
+	
   if (id.PeekEventImpl () == 0 ||
-      id.GetTs () < m_currentTs ||
-      (id.GetTs () == m_currentTs &&
+      id.GetTs () < currentTs ||
+      (id.GetTs () == currentTs &&
        id.GetUid () <= m_currentUid) ||
       id.PeekEventImpl ()->IsCancelled ()) 
     {

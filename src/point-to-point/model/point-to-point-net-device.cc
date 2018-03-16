@@ -29,6 +29,10 @@
 #include "point-to-point-channel.h"
 #include "ppp-header.h"
 
+// <M>
+#include "ns3/list-scheduler.h"
+// <M>
+
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("PointToPointNetDevice");
@@ -263,6 +267,11 @@ PointToPointNetDevice::TransmitStart (Ptr<Packet> p)
   Time txCompleteTime = txTime + m_tInterframeGap;
 
   NS_LOG_LOGIC ("Schedule TransmitCompleteEvent in " << txCompleteTime.GetSeconds () << "sec");
+  
+  // <M>
+  ListScheduler::SetEventType (Scheduler::NODE);
+  // <M>
+  
   Simulator::Schedule (txCompleteTime, &PointToPointNetDevice::TransmitComplete, this);
 
   bool result = m_channel->TransmitStart (p, this, txTime);

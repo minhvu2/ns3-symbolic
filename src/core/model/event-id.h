@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include "ptr.h"
 #include "event-impl.h"
+
 // <M>
 #include "scheduler.h"
 // <M>
@@ -69,9 +70,8 @@ public:
   
   // <M>
   EventId (const Ptr<EventImpl> &impl, uint64_t ts, uint32_t context, uint32_t uid,
-           Scheduler::EventSchedulers_t eventType);
+            Scheduler::EventSchedulers_t eventType);
   // <M>
-
   /**
    * This method is syntactic sugar for the ns3::Simulator::Cancel
    * method.
@@ -104,10 +104,10 @@ public:
   uint32_t GetContext (void) const;
   /** \return The unique id. */
   uint32_t GetUid (void) const;
+  
   // <M>
   Scheduler::EventSchedulers_t GetEventType (void) const;
   // <M>
-
   /**@}*/
   
 private:
@@ -130,10 +130,10 @@ private:
   uint64_t m_ts;               /**< The virtual time stamp. */
   uint32_t m_context;          /**< The context. */
   uint32_t m_uid;              /**< The unique id. */
+  
   // <M>
   Scheduler::EventSchedulers_t m_eventType;
   // <M>
-
 };
 
 bool operator == (const EventId &a, const EventId &b);

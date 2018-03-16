@@ -67,6 +67,9 @@ public:
   virtual EventId Schedule (Time const &delay, EventImpl *event) = 0;
   /** \copydoc Simulator::ScheduleWithContext(uint32_t,const Time&,EventImpl*) */
   virtual void ScheduleWithContext (uint32_t context, Time const &delay, EventImpl *event) = 0;
+  // <M>
+  virtual void ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, EventImpl *event);
+  // <M>
   /** \copydoc Simulator::ScheduleNow(const Ptr<EventImpl>&) */
   virtual EventId ScheduleNow (EventImpl *event) = 0;
   /** \copydoc Simulator::ScheduleDestroy(const Ptr<EventImpl>&) */

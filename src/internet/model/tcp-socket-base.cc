@@ -54,10 +54,8 @@
 #include <math.h>
 #include <algorithm>
 
-// <M>
 #include "ns3/scheduler.h"
 #include "ns3/list-scheduler.h"
-// <M>
 
 namespace ns3 {
 
@@ -813,6 +811,10 @@ TcpSocketBase::Send (Ptr<Packet> p, uint32_t flags)
         { // Try to send the data out
           if (!m_sendPendingDataEvent.IsRunning ())
             {
+              // <M>
+//              printf ("Scheduling in Send, event pointed to SendPendingData\n");
+              ListScheduler::SetEventType (Scheduler::NODE);
+              // <M>
               m_sendPendingDataEvent = Simulator::Schedule (TimeStep (1),
                                                             &TcpSocketBase::SendPendingData,
                                                             this, m_connected);
@@ -1276,10 +1278,20 @@ TcpSocketBase::DoForwardUp (Ptr<Packet> packet, const Address &fromAddress,
       NS_LOG_LOGIC (this << " Enter zerowindow persist state");
       NS_LOG_LOGIC (this << " Cancelled ReTxTimeout event which was set to expire at " <<
                     (Simulator::Now () + Simulator::GetDelayLeft (m_retxEvent)).GetSeconds ());
+
+      // <M>
+//      printf ("Canceling ReTxTimeout event id %u - %lu ms in DoForwardUp\n", m_retxEvent.GetUid(), m_retxEvent.GetTs());
+      // <M>
+
       m_retxEvent.Cancel ();
       NS_LOG_LOGIC ("Schedule persist timeout at time " <<
                     Simulator::Now ().GetSeconds () << " to expire at time " <<
                     (Simulator::Now () + m_persistTimeout).GetSeconds ());
+      // <M>
+//      printf ("Scheduling persist timeout at %lu ms in DoForwardUp\n", (Simulator::Now () + m_persistTimeout).GetMilliSeconds());
+      ListScheduler::SetEventType (Scheduler::TIMEOUT);
+      // <M>
+
       m_persistEvent = Simulator::Schedule (m_persistTimeout, &TcpSocketBase::PersistTimeout, this);
       NS_ASSERT (m_persistTimeout == Simulator::GetDelayLeft (m_persistEvent));
     }
@@ -1344,6 +1356,10 @@ TcpSocketBase::DoForwardUp (Ptr<Packet> packet, const Address &fromAddress,
       // Try to send more data, since window has been updated
       if (!m_sendPendingDataEvent.IsRunning ())
         {
+          // <M>
+//          printf ("Scheduling in DoForwardUp, event pointed to SendPendingData\n");
+          ListScheduler::SetEventType (Scheduler::NODE);
+          // <M>
           m_sendPendingDataEvent = Simulator::Schedule (TimeStep (1),
                                                         &TcpSocketBase::SendPendingData,
                                                         this, m_connected);
@@ -1665,6 +1681,10 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
       // Try to send more data
       if (!m_sendPendingDataEvent.IsRunning ())
         {
+          // <M>
+//          printf ("Scheduling in ReceiveAck, event pointed to SendPendingData\n");
+          ListScheduler::SetEventType (Scheduler::NODE);
+          // <M>
           m_sendPendingDataEvent = Simulator::Schedule (TimeStep (1),
                                                         &TcpSocketBase::SendPendingData,
                                                         this, m_connected);
@@ -1704,6 +1724,10 @@ TcpSocketBase::ProcessListen (Ptr<Packet> packet, const TcpHeader& tcpHeader,
   // Clone the socket, simulate fork
   Ptr<TcpSocketBase> newSock = Fork ();
   NS_LOG_LOGIC ("Cloned a TcpSocketBase " << newSock);
+  
+  // <M>
+  ListScheduler::SetEventType (Scheduler::NODE);
+  // <M>
   Simulator::ScheduleNow (&TcpSocketBase::CompleteFork, newSock,
                           packet, tcpHeader, fromAddress, toAddress);
 }
@@ -1725,6 +1749,10 @@ TcpSocketBase::ProcessSynSent (Ptr<Packet> packet, const TcpHeader& tcpHeader)
       m_retxEvent.Cancel ();
       m_delAckCount = m_delAckMaxCount;
       ReceivedData (packet, tcpHeader);
+      
+      // <M>
+      ListScheduler::SetEventType (Scheduler::NODE);
+      // <M>
       Simulator::ScheduleNow (&TcpSocketBase::ConnectionSucceeded, this);
     }
   else if (tcpflags == TcpHeader::ACK)
@@ -1744,12 +1772,22 @@ TcpSocketBase::ProcessSynSent (Ptr<Packet> packet, const TcpHeader& tcpHeader)
       NS_LOG_DEBUG ("SYN_SENT -> ESTABLISHED");
       m_state = ESTABLISHED;
       m_connected = true;
+
+      // <M>
+//      printf ("Canceling ReTxTimeout event id %u - %lu ms in ProcessSynSent\n", m_retxEvent.GetUid(), m_retxEvent.GetTs());
+      // <M>
+
       m_retxEvent.Cancel ();
       m_rxBuffer->SetNextRxSequence (tcpHeader.GetSequenceNumber () + SequenceNumber32 (1));
       m_highTxMark = ++m_nextTxSequence;
       m_txBuffer->SetHeadSequence (m_nextTxSequence);
       SendEmptyPacket (TcpHeader::ACK);
       SendPendingData (m_connected);
+      
+      // <M>
+      ListScheduler::SetEventType (Scheduler::NODE);
+      // <M>
+      
       Simulator::ScheduleNow (&TcpSocketBase::ConnectionSucceeded, this);
       // Always respond to first data packet to speed up the connection.
       // Remove to get the behaviour of old NS-3 code.
@@ -1786,6 +1824,11 @@ TcpSocketBase::ProcessSynRcvd (Ptr<Packet> packet, const TcpHeader& tcpHeader,
       NS_LOG_DEBUG ("SYN_RCVD -> ESTABLISHED");
       m_state = ESTABLISHED;
       m_connected = true;
+
+      // <M>
+//      printf ("Canceling ReTxTimeout event id %u - %lu ms in ProcessSynRcvd 1\n", m_retxEvent.GetUid(), m_retxEvent.GetTs());
+      // <M>
+
       m_retxEvent.Cancel ();
       m_highTxMark = ++m_nextTxSequence;
       m_txBuffer->SetHeadSequence (m_nextTxSequence);
@@ -1820,6 +1863,11 @@ TcpSocketBase::ProcessSynRcvd (Ptr<Packet> packet, const TcpHeader& tcpHeader,
       if (tcpHeader.GetSequenceNumber () == m_rxBuffer->NextRxSequence ())
         { // In-sequence FIN before connection complete. Set up connection and close.
           m_connected = true;
+
+          // <M>
+//          printf ("Canceling ReTxTimeout event id %u - %lu ms in ProcessSynRcvd 2\n", m_retxEvent.GetUid(), m_retxEvent.GetTs());
+          // <M>
+
           m_retxEvent.Cancel ();
           m_highTxMark = ++m_nextTxSequence;
           m_txBuffer->SetHeadSequence (m_nextTxSequence);
@@ -2069,10 +2117,11 @@ TcpSocketBase::DoPeerClose (void)
     {
       NS_LOG_LOGIC ("TcpSocketBase " << this << " scheduling LATO1");
       Time lastRto = m_rtt->GetEstimate () + Max (m_clockGranularity, m_rtt->GetVariation () * 4);
-      
       // <M>
+//      printf ("Scheduling in DoPeerClose, event pointed to LastAckTimeout\n");
       ListScheduler::SetEventType (Scheduler::TIMEOUT);
-      // <M>      
+//      ListScheduler::SetEventType (Scheduler::NODE);
+      // <M>
       m_lastAckEvent = Simulator::Schedule (lastRto, &TcpSocketBase::LastAckTimeout, this);
     }
 }
@@ -2241,9 +2290,13 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
       NS_LOG_LOGIC ("Schedule retransmission timeout at time "
                     << Simulator::Now ().GetSeconds () << " to expire at time "
                     << (Simulator::Now () + m_rto.Get ()).GetSeconds ());
+
       // <M>
+//      printf ("Scheduling ReTxTimeout at %lu ms in SendEmptyPacket\n", (Simulator::Now () + m_rto.Get ()).ToInteger (Time::MS));
       ListScheduler::SetEventType (Scheduler::TIMEOUT);
-      // <M>                    
+//      ListScheduler::SetEventType (Scheduler::NODE);
+      // <M>
+
       m_retxEvent = Simulator::Schedule (m_rto, &TcpSocketBase::SendEmptyPacket, this, flags);
     }
 }
@@ -2496,10 +2549,11 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
       NS_LOG_LOGIC (this << " SendDataPacket Schedule ReTxTimeout at time " <<
                     Simulator::Now ().GetSeconds () << " to expire at time " <<
                     (Simulator::Now () + m_rto.Get ()).GetSeconds () );
-                    
       // <M>
+//      printf ("Scheduling ReTxTimeout at %lu ms in SendDataPacket\n", (Simulator::Now () + m_rto.Get ()).ToInteger (Time::MS));
       ListScheduler::SetEventType (Scheduler::TIMEOUT);
-      // <M>                    
+//     ListScheduler::SetEventType (Scheduler::NODE);
+      // <M>
       m_retxEvent = Simulator::Schedule (m_rto, &TcpSocketBase::ReTxTimeout, this);
     }
 
@@ -2527,10 +2581,19 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
   // Notify the application of the data being sent unless this is a retransmit
   if (seq + sz > m_highTxMark)
     {
+	  // <M>
+	  ListScheduler::SetEventType (Scheduler::NODE);
+	  // <M>	
+		
       Simulator::ScheduleNow (&TcpSocketBase::NotifyDataSent, this, (seq + sz - m_highTxMark.Get ()));
     }
   // Update highTxMark
   m_highTxMark = std::max (seq + sz, m_highTxMark.Get ());
+
+  // <M>
+//    printf ("Sending data packet of size %u \n", sz);
+  // <M>
+
   return sz;
 }
 
@@ -2725,8 +2788,11 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
       else if (m_delAckEvent.IsExpired ())
         {
           // <M>
+//          printf ("Scheduling DelAckTimeout at %lu ms in ReceivedData\n", 
+//                  (Simulator::Now() + Simulator::GetDelayLeft (m_delAckEvent)).GetMilliSeconds ());
           ListScheduler::SetEventType (Scheduler::TIMEOUT);
-          // <M>			
+//          ListScheduler::SetEventType (Scheduler::NODE);        
+          // <M>
           m_delAckEvent = Simulator::Schedule (m_delAckTimeout,
                                                &TcpSocketBase::DelAckTimeout, this);
           NS_LOG_LOGIC (this << " scheduled delayed ACK at " <<
@@ -2821,6 +2887,10 @@ TcpSocketBase::NewAck (SequenceNumber32 const& ack, bool resetRTO)
     { // Set RTO unless the ACK is received in SYN_RCVD state
       NS_LOG_LOGIC (this << " Cancelled ReTxTimeout event which was set to expire at " <<
                     (Simulator::Now () + Simulator::GetDelayLeft (m_retxEvent)).GetSeconds ());
+      // <M>
+//      printf ("Canceling ReTxTimeout event id %u - %lu ms in NewAck 1\n", m_retxEvent.GetUid(), m_retxEvent.GetTs());
+      // <M>
+
       m_retxEvent.Cancel ();
       // On receiving a "New" ack we restart retransmission timer .. RFC 6298
       // RFC 6298, clause 2.4
@@ -2829,10 +2899,11 @@ TcpSocketBase::NewAck (SequenceNumber32 const& ack, bool resetRTO)
       NS_LOG_LOGIC (this << " Schedule ReTxTimeout at time " <<
                     Simulator::Now ().GetSeconds () << " to expire at time " <<
                     (Simulator::Now () + m_rto.Get ()).GetSeconds ());
-
       // <M>
+//      printf ("Scheduling ReTxTimeout event in NewAck at %lu ms\n", (Simulator::Now() + m_rto.Get()).ToInteger (Time::MS));
       ListScheduler::SetEventType (Scheduler::TIMEOUT);
-      // <M>                    
+//      ListScheduler::SetEventType (Scheduler::NODE);
+      // <M>
       m_retxEvent = Simulator::Schedule (m_rto, &TcpSocketBase::ReTxTimeout, this);
     }
 
@@ -2852,6 +2923,11 @@ TcpSocketBase::NewAck (SequenceNumber32 const& ack, bool resetRTO)
     { // No retransmit timer if no data to retransmit
       NS_LOG_LOGIC (this << " Cancelled ReTxTimeout event which was set to expire at " <<
                     (Simulator::Now () + Simulator::GetDelayLeft (m_retxEvent)).GetSeconds ());
+      
+      // <M>
+//      printf ("Canceling ReTxTimeout event id %u - %lu ms in NewAck 2\n", m_retxEvent.GetUid(), m_retxEvent.GetTs());
+      // <M>
+
       m_retxEvent.Cancel ();
     }
 }
@@ -2941,10 +3017,11 @@ TcpSocketBase::PersistTimeout ()
   NS_LOG_LOGIC ("Schedule persist timeout at time "
                 << Simulator::Now ().GetSeconds () << " to expire at time "
                 << (Simulator::Now () + m_persistTimeout).GetSeconds ());
-
   // <M>
+//  printf ("Scheduling in PersistTimeout at %lu ms in PersistTimeout\n", (Simulator::Now() + m_persistTimeout).GetMilliSeconds());
   ListScheduler::SetEventType (Scheduler::TIMEOUT);
-  // <M>                
+//  ListScheduler::SetEventType (Scheduler::NODE);
+  // <M>
   m_persistEvent = Simulator::Schedule (m_persistTimeout, &TcpSocketBase::PersistTimeout, this);
 }
 
@@ -3078,6 +3155,11 @@ TcpSocketBase::TimeWait ()
   CancelAllTimers ();
   // Move from TIME_WAIT to CLOSED after 2*MSL. Max segment lifetime is 2 min
   // according to RFC793, p.28
+  
+  // <M>
+  ListScheduler::SetEventType (Scheduler::SIMULATOR);
+  // <M>
+  
   m_timewaitEvent = Simulator::Schedule (Seconds (2 * m_msl),
                                          &TcpSocketBase::CloseAndNotify, this);
 }

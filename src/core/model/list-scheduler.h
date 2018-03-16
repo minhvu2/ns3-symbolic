@@ -58,16 +58,11 @@ public:
   virtual ~ListScheduler ();
 
   // <M>
-  static bool m_isTransmitEvent;
-  static void SetTransmitEvent (bool value);
-  void PrintDebugInfo (uint32_t ev_id, uint32_t i_id);
-  static uint32_t m_numSymEvents;
-  static uint32_t m_currPacketSize;
-  static uint64_t m_symTime;
-  static uint64_t m_maxBound;
-
+  static void SetPacketSize (uint32_t packetSize);
+  static void SetTransmitEvent (bool value);  
   static void SetEventType (EventSchedulers_t eventType);
-  static EventSchedulers_t GetCurrEventType (void);
+  static EventSchedulers_t GetCurrEventType (void);   
+  static void SetNumNodes (uint32_t n); 
   // <M>
 
   // Inherited
@@ -85,14 +80,36 @@ private:
 
   /** The event list. */
   Events m_events;
-  
-  // <M>
-  static bool debug;
-  static Scheduler::EventSchedulers_t m_currEventType;
 
-  void InsertIntoMainList (EventsI start, const Scheduler::Event &ev);
-  void InsertIntoMainList_NextIsTimeout (const Scheduler::Event &ev);
-  // <M>  
+  // <M>
+  /** Parameters for symbolic execution. */
+  static uint32_t m_numSymEvents;
+  static uint64_t m_symTime;
+  static uint64_t m_maxBound;
+  
+  static uint32_t m_currPacketSize;
+  static bool m_isTransmitEvent;
+  static uint32_t m_numNodes;
+  static Scheduler::EventSchedulers_t m_currEventType;
+  static bool m_isNodeVectorInitialized;
+  static bool debug;
+  
+  typedef std::vector<uint64_t> nodeImpactLatency;
+  /** The impact latency matrix. */
+  std::vector<nodeImpactLatency> m_impactLatency;
+  /** The simulator event list. */
+  Events m_simEvents;
+  /** The node event lists, each node has its own list. */
+  std::vector<Events> m_nodesEvents;
+  
+  void InsertBackToMainList_FrontIsTimeout (Events &subList, const Scheduler::Event &ev);
+  void InsertWaitingList (Events &subList, EventsI start, const Scheduler::Event &ev);
+  void CheckFrontEvent (Events &subList);
+  
+  void InsertMultiList (Events &subList, const Scheduler::Event &ev);
+  void RemoveFromSubList (Events &subList, const Scheduler::Event &ev);
+  void PrintDebugInfo (Events &subList, uint32_t ev_id, uint32_t i_id);
+  // <M>
 };
 
 } // namespace ns3

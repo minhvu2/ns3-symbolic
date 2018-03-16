@@ -42,4 +42,9 @@ SimulatorImpl::GetTypeId (void)
   return tid;
 }
 
+void 
+SimulatorImpl::ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, EventImpl *event)
+{
+}
+	
 } // namespace ns3

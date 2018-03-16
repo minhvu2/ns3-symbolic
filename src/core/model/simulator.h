@@ -614,6 +614,22 @@ public:
             typename T1, typename T2, typename T3, typename T4, typename T5>
   static void ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2,U3,U4,U5), T1 a1, T2 a2, T3 a3, T4 a4, T5 a5);
 
+  /**
+   * <M>
+   * include previous context for multiple list
+   */ 
+  template <typename MEM, typename OBJ, typename T1>
+  static void ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1); 
+
+  static void ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, void (*f)(void));
+
+  template <typename U1,
+            typename T1>
+  static void ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, void (*f)(U1), T1 a1);
+   
+  template <typename U1, typename U2,
+            typename T1, typename T2>
+  static void ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, void (*f)(U1,U2), T1 a1, T2 a2);
   /** @} */
   
   /**
@@ -1134,6 +1150,12 @@ public:
    * @returns A unique identifier for the newly-scheduled event.
    */
   static void ScheduleWithContext (uint32_t context, const Time &delay, EventImpl *event);
+  
+  /**
+   * <M>
+   * include previous context for multiple lists and local clocks
+   */
+  static void ScheduleWithContext (uint32_t prevContext, uint32_t context, const Time &delay, EventImpl *event);  
 
   /**
    * Schedule an event to run at the end of the simulation, after
@@ -1307,6 +1329,15 @@ void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM me
   return ScheduleWithContext (context, delay, MakeEvent (mem_ptr, obj, a1));
 }
 
+// <M>
+template <typename MEM, typename OBJ,
+          typename T1>
+void Simulator::ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1)
+{
+  return ScheduleWithContext (prevContext, context, delay, MakeEvent (mem_ptr, obj, a1));
+}
+// <M>
+
 template <typename MEM, typename OBJ,
           typename T1, typename T2>
 void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2)
@@ -1343,12 +1374,30 @@ void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, void (
   return ScheduleWithContext (context, delay, MakeEvent (f, a1));
 }
 
+// <M>
+template <typename U1,
+          typename T1>
+void Simulator::ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, void (*f)(U1), T1 a1)
+{
+  return ScheduleWithContext (context, delay, MakeEvent (f, a1));
+}
+// <M>
+
 template <typename U1, typename U2,
           typename T1, typename T2>
 void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2), T1 a1, T2 a2)
 {
   return ScheduleWithContext (context, delay, MakeEvent (f, a1, a2));
 }
+
+// <M>
+template <typename U1, typename U2,
+          typename T1, typename T2>
+void Simulator::ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, void (*f)(U1,U2), T1 a1, T2 a2)
+{
+  return ScheduleWithContext (prevContext, context, delay, MakeEvent (f, a1, a2));
+}
+// <M>
 
 template <typename U1, typename U2, typename U3,
           typename T1, typename T2, typename T3>

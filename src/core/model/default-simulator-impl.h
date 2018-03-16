@@ -30,6 +30,9 @@
 #include "ptr.h"
 
 #include <list>
+// <M>
+#include <vector>
+// <M>
 
 /**
  * \file
@@ -65,6 +68,9 @@ public:
   virtual void Stop (Time const &delay);
   virtual EventId Schedule (Time const &delay, EventImpl *event);
   virtual void ScheduleWithContext (uint32_t context, Time const &delay, EventImpl *event);
+  // <M>
+  virtual void ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, EventImpl *event);
+  // <M>
   virtual EventId ScheduleNow (EventImpl *event);
   virtual EventId ScheduleDestroy (EventImpl *event);
   virtual void Remove (const EventId &id);
@@ -122,6 +128,12 @@ private:
   uint32_t m_currentUid;
   /** Timestamp of the current event. */
   uint64_t m_currentTs;
+  // <M>
+  /** Timestamp of the current event in each list. Local clock. */
+  std::vector<uint64_t> m_localCurrentTs;
+  /** Number of nodes. */
+  uint32_t m_numNodes;
+  // <M>
   /** Execution context of the current event. */
   uint32_t m_currentContext;
   /**
