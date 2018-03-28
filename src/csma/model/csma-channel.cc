@@ -24,6 +24,9 @@
 #include "ns3/simulator.h"
 #include "ns3/log.h"
 
+#include "ns3/list-scheduler.h"
+//#include <stdio.h>
+
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("CsmaChannel");
@@ -229,7 +232,12 @@ CsmaChannel::TransmitEnd ()
       if (it->IsActive ())
         {
           // schedule reception events
-          Simulator::ScheduleWithContext (it->devicePtr->GetNode ()->GetId (),
+          // <M> add parameter for source id (local clock)
+          //printf ("CSMA - sending packet from node %u to node %u - arrive in %lu ms \n",
+                  //m_currentSrc, it->devicePtr->GetNode ()->GetId (), m_delay.GetMilliSeconds ());
+          ListScheduler::SetTransmitEvent (true);
+          ListScheduler::SetPacketSize (m_currentPkt->GetSize ());
+          Simulator::ScheduleWithContext (m_currentSrc, it->devicePtr->GetNode ()->GetId (),
                                           m_delay,
                                           &CsmaNetDevice::Receive, it->devicePtr,
                                           m_currentPkt->Copy (), m_deviceList[m_currentSrc].devicePtr);

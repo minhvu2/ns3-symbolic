@@ -619,7 +619,10 @@ public:
    * include previous context for multiple list
    */ 
   template <typename MEM, typename OBJ, typename T1>
-  static void ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1); 
+  static void ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1);
+  
+  template <typename MEM, typename OBJ, typename T1, typename T2>
+  static void ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2); 
 
   static void ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, void (*f)(void));
 
@@ -1344,6 +1347,15 @@ void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM me
 {
   return ScheduleWithContext (context, delay, MakeEvent (mem_ptr, obj, a1, a2));
 }
+
+// <M>
+template <typename MEM, typename OBJ,
+          typename T1, typename T2>
+void Simulator::ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2)
+{
+  return ScheduleWithContext (prevContext, context, delay, MakeEvent (mem_ptr, obj, a1, a2));
+}
+// <M>
 
 template <typename MEM, typename OBJ,
           typename T1, typename T2, typename T3>

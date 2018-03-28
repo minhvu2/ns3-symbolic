@@ -66,7 +66,8 @@ public:
   
   static void SetPathReduction (bool value);
   static void SetWaitingList (bool value);
-  static void SetLocalList (bool value);    
+  static void SetLocalList (bool value);
+  static void SetEndOfSim (bool value);    
   // <M>
 
   // Inherited
@@ -94,7 +95,8 @@ private:
   /** Set techniques to use. */
   static bool m_usePathReduction;
   static bool m_useWaitingList;
-  static bool m_useLocalList;  
+  static bool m_useLocalList;
+  static bool m_useEndOfSim;  
   
   static uint32_t m_currPacketSize;
   static bool m_isTransmitEvent;
@@ -102,6 +104,7 @@ private:
   static Scheduler::EventSchedulers_t m_currEventType;
   static bool m_isNodeVectorInitialized;
   static bool debug;
+  unsigned m_currNode;
   
   typedef std::vector<uint64_t> nodeImpactLatency;
   /** The impact latency matrix. */

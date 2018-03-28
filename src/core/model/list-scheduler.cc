@@ -53,7 +53,8 @@ ListScheduler::GetTypeId (void)
 }
 
 ListScheduler::ListScheduler ()
-{	
+{
+  m_currNode = 0;		
   NS_LOG_FUNCTION (this);
 }
 ListScheduler::~ListScheduler ()
@@ -68,6 +69,7 @@ uint64_t ListScheduler::m_symTime = 0;
 bool ListScheduler::m_usePathReduction = true;
 bool ListScheduler::m_useWaitingList = true;
 bool ListScheduler::m_useLocalList = true;
+bool ListScheduler::m_useEndOfSim = true;
 
 bool ListScheduler::m_isTransmitEvent = false;
 uint32_t ListScheduler::m_numNodes = 2;
@@ -92,6 +94,12 @@ void
 ListScheduler::SetLocalList (bool value)
 {
   m_useLocalList = value;
+}
+
+void
+ListScheduler::SetEndOfSim (bool value)
+{
+  m_useEndOfSim = value;	
 }
 
 void
@@ -210,6 +218,14 @@ ListScheduler::InsertMultiList (Events &subList, const Event &ev)
 				   //PrintDebugInfo (subList, ev.key.m_uid, i->key.m_uid);
 				   return;
 				}
+			  // If i is the end of simulation event and the above insertion condition fails,
+              // then ev must happen after i.
+              // Thus we push ev at the end of the list.	
+			  if (m_useEndOfSim == true && i->key.m_eventType == STOP)
+			    {
+				  subList.push_back (ev);
+				  return;	
+				}	
 			}
 		  subList.push_back (ev);
 		  //PrintDebugInfo (subList, ev.key.m_uid, ev.key.m_uid);
@@ -225,6 +241,12 @@ ListScheduler::InsertMultiList (Events &subList, const Event &ev)
 		          subList.insert (i, ev);
 		          return;
 		        }
+		        
+		      if (m_useEndOfSim == true && i->key.m_eventType == STOP)
+		        {
+				  subList.push_back (ev);
+				  return;	
+				}    
 		    }
 		  subList.push_back (ev);
 		  return;		
@@ -269,6 +291,12 @@ ListScheduler::InsertBackToMainList_FrontIsTimeout (Events &subList, const Event
               //PrintDebugInfo (ev.key.m_uid, i->key.m_uid);
 			  return;	                
 	        }
+	        
+	      if (m_useEndOfSim == true && i->key.m_eventType == STOP)
+		    {
+			  subList.push_back (ev);
+			  return;	
+			}	   
 	    }
 	  subList.push_back (ev);
 	  return;
@@ -291,6 +319,12 @@ ListScheduler::InsertBackToMainList_FrontIsTimeout (Events &subList, const Event
 	          subList.insert (i, ev);
 	          return;
 	        }
+	      
+	      if (m_useEndOfSim == true && i->key.m_eventType == STOP)
+		    {
+			  subList.push_back (ev);
+			  return;	
+			}	   
 	    }
 	  subList.push_back (ev);
 	  return;		
@@ -327,7 +361,13 @@ ListScheduler::InsertWaitingList (Events &subList, EventsI start, const Event &e
 			  printf ("Inserting event %u into sub list\n", ev.key.m_uid);
 			  //PrintDebugInfo (subList, ev.key.m_uid, i->key.m_uid);
 			  return;
-			}		
+			}
+			
+		  if (m_useEndOfSim == true && i->key.m_eventType == STOP)
+			{
+			  subList.push_back (ev);
+			  return;	
+			}				
 	    }
 	  subList.push_back (ev);
 	  return;
@@ -351,6 +391,12 @@ ListScheduler::InsertWaitingList (Events &subList, EventsI start, const Event &e
 	          //PrintDebugInfo (subList, ev.key.m_uid, i->key.m_uid);
 	          return;
 	        }
+	        
+	      if (m_useEndOfSim == true && i->key.m_eventType == STOP)
+		    {
+			  subList.push_back (ev);
+			  return;	
+			}  
 	    }
 	  subList.push_back (ev);
 	  return;		
@@ -363,17 +409,36 @@ ListScheduler::Insert (const Event &ev)
   NS_LOG_FUNCTION (this << &ev);
   if (!m_isNodeVectorInitialized)
     {
-	  //simple-global-routing	
+	  // simple-global-routing	
 	  //uint64_t impactLatencyMatrix [4][4] = {{0, 10, 5, 15}, 
 	                                         //{10, 0, 5, 15},
 	                                         //{5, 5, 0, 10},
 	                                         //{15, 15, 10, 0}};
+	  // tcp-bulk-send-2pairs                                        
 	  //uint64_t impactLatencyMatrix [4][4] = {{0, 5, 100000, 100000}, 
 	                                         //{5, 0, 100000, 100000},
 	                                         //{100000, 100000, 0, 5},
 	                                         //{100000, 100000, 5, 0}};
-	  uint64_t impactLatencyMatrix [2][2] = {{0, 5}, 
-	                                         {5, 0},};   			  
+	  // tcp-bulk-send
+	  //uint64_t impactLatencyMatrix [2][2] = {{0, 5}, 
+	                                         //{5, 0},};
+	  // udp-client-server
+	  //uint64_t impactLatencyMatrix [2][2] = {{0, 2}, 
+	                                         //{2, 0}};                                       
+	                                         
+	  // rip-simple-network
+	  //uint64_t impactLatencyMatrix [6][6] = {{0, 8, 2, 4, 4, 6}, 
+	                                         //{8, 0, 6, 4, 4, 2},
+	                                         //{2, 6, 0, 2, 2, 4},
+	                                         //{4, 4, 2, 0, 2, 2},
+	                                         //{4, 4, 2, 2, 0, 2},
+	                                         //{6, 2, 4, 2, 2, 0}};
+	                                         
+	  // simple-error-model
+	  uint64_t impactLatencyMatrix [4][4] = {{0, 4, 2, 12}, 
+	                                         {4, 0, 2, 12},
+	                                         {2, 2, 0, 10},
+	                                         {12, 12, 10, 0}};                                          			  
 	  m_impactLatency.resize (m_numNodes);
 	  for (unsigned i = 0; i < m_numNodes; i++)
 	    {
@@ -424,6 +489,9 @@ ListScheduler::Insert (const Event &ev)
   s2e_warning (buf);
   memset (buf, 0, sizeof(buf));
 
+  const_cast<Event&>(ev).key.m_eventType = m_currEventType;
+  SetEventType (UNDEFINED);
+  
   // Insert events into right list if local lists are used  
   if (m_useLocalList == true)
     {
@@ -455,13 +523,19 @@ ListScheduler::Insert (const Event &ev)
 		    {
 			  m_events.insert (i, ev);
 			  return;	
-			}	
+			}			
+		  // use end of simulation	
+		  if (m_useEndOfSim == true && i->key.m_eventType == STOP)
+		    {
+			  m_events.push_back (ev);
+			  return;	
+			}		
 		}
 	  m_events.push_back (ev);
 	  return;		
     }
   
-  // No technique used
+  // No technique used except end of simulation
   if (m_usePathReduction == false)
     {
 	  for (EventsI i = m_events.begin (); i != m_events.end (); i++)
@@ -470,7 +544,13 @@ ListScheduler::Insert (const Event &ev)
 		    {
 			  m_events.insert (i, ev);
 			  return;	
-			}	
+			}
+		  // use end of simulation	
+		  if (m_useEndOfSim == true && i->key.m_eventType == STOP)
+		    {
+			  m_events.push_back (ev);
+			  return;	
+			}		
 		}
 	  m_events.push_back (ev);
 	  return;		
@@ -646,15 +726,15 @@ ListScheduler::RemoveNextLocalList (void)
   for (unsigned i = 0; i < m_nodesEvents.size (); i++)
     {
 	  foundNext = true;	
-      if (!m_nodesEvents.at (i).empty ())
+      if (!m_nodesEvents.at (m_currNode).empty ())
         {
-		  next = m_nodesEvents.at (i).front ();
+		  next = m_nodesEvents.at (m_currNode).front ();
 		  // Pick the front event of a non-empty node list
 		  // Compare it to the front event of other node lists
 		  for (unsigned j = 0; j < m_nodesEvents.size (); j++)
 		    {
-			  if (i != j && !m_nodesEvents.at (j). empty ()
-			      && next.key.m_ts >= m_nodesEvents.at (j).front ().key.m_ts + m_impactLatency.at (i).at (j))
+			  if (m_currNode != j && !m_nodesEvents.at (j). empty ()
+			      && next.key.m_ts >= m_nodesEvents.at (j).front ().key.m_ts + m_impactLatency.at (m_currNode).at (j))
 			    {
 				  foundNext = false;
 				  break;	
@@ -664,10 +744,12 @@ ListScheduler::RemoveNextLocalList (void)
 		    {
 			  //printf ("Removing next event: %u - %llu ms, i = %u \n", next.key.m_uid, next.key.m_ts, i);
 			  //printf ("Node list %u size %lu", i, m_nodesEvents.at (i).size ());
-			  m_nodesEvents.at (i).pop_front ();	
+			  m_nodesEvents.at (m_currNode).pop_front ();
+			  m_currNode = (m_currNode + 1) % m_nodesEvents.size();	
 			  return next;	
 			}		
-		}  	 	
+		}
+	  m_currNode = (m_currNode + 1) % m_nodesEvents.size();	  	 	
 	}
   	  	 		 	    
   //printf ("Error: Shoud not reach this statement \n");

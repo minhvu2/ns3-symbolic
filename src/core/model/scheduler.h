@@ -79,6 +79,7 @@ public:
     NETWORK,
     NODE,
     TIMEOUT,
+    STOP,
     UNDEFINED
   } EventSchedulers_t;
   // <M>

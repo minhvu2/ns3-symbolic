@@ -74,18 +74,23 @@ DefaultSimulatorImpl::DefaultSimulatorImpl ()
   m_currentUid = 0;
   m_currentTs = 0;
   // <M>
+  // initialize local clocks
   m_numNodes = 2;
+  ListScheduler::SetNumNodes (m_numNodes);
   for (uint32_t i=0; i < m_numNodes; i++)
     {
 	  m_localCurrentTs.push_back (0);	
     }
+  // set implementations to use  
   m_implementations.push_back (true); // three to two paths per iteration
   m_implementations.push_back (true); // remove inactive events
   m_implementations.push_back (true); // waiting list
   m_implementations.push_back (true); // local lists and clocks
+  m_implementations.push_back (true); // end of simulation
   ListScheduler::SetPathReduction (m_implementations.at (0));
   ListScheduler::SetWaitingList (m_implementations.at (2));
-  ListScheduler::SetLocalList (m_implementations.at (3));  	 
+  ListScheduler::SetLocalList (m_implementations.at (3));
+  ListScheduler::SetEndOfSim (m_implementations.at (4));  	 
   // <M>
   m_currentContext = 0xffffffff;
   m_unscheduledEvents = 0;
@@ -172,7 +177,7 @@ DefaultSimulatorImpl::ProcessOneEvent (void)
 //  m_currentTs = next.key.m_ts;
   
   // Set current timestamp for corresponding list
-  if (next.key.m_context != 0xffffffff)
+  if (next.key.m_context != 0xffffffff && m_implementations.at (3) == true)
     {
       m_localCurrentTs.at (next.key.m_context) = next.key.m_ts;		  	
 	}
@@ -184,6 +189,7 @@ DefaultSimulatorImpl::ProcessOneEvent (void)
   m_currentUid = next.key.m_uid;
 //  printf ("ProcessOneEvent-1\n");
   next.impl->Invoke ();
+  next.impl->Cancel ();
   next.impl->Unref ();
 
 //  printf ("ProcessOneEvent-2\n");
@@ -261,6 +267,7 @@ void
 DefaultSimulatorImpl::Stop (Time const &delay)
 {
   NS_LOG_FUNCTION (this << delay.GetTimeStep ());
+  ListScheduler::SetEventType (Scheduler::STOP);
   Simulator::Schedule (delay, &Simulator::Stop);
 }
 
@@ -277,7 +284,7 @@ DefaultSimulatorImpl::Schedule (Time const &delay, EventImpl *event)
 // <M>
 // Set scheduled timestamp based on local clocks
   Time tAbsolute;
-  if (GetContext () != 0xffffffff)
+  if (GetContext () != 0xffffffff && m_implementations.at (3) == true)
     {
 	  tAbsolute = delay + TimeStep (m_localCurrentTs.at (GetContext ()));	
 	  NS_ASSERT (tAbsolute >= TimeStep (m_localCurrentTs.at (GetContext ())));
@@ -316,7 +323,7 @@ DefaultSimulatorImpl::ScheduleWithContext (uint32_t context, Time const &delay, 
 //      Time tAbsolute = delay + TimeStep (m_currentTs);
 // <M>
       Time tAbsolute;
-      if (GetContext () != 0xffffffff)
+      if (GetContext () != 0xffffffff && m_implementations.at (3) == true)
         {
 	      tAbsolute = delay + TimeStep (m_localCurrentTs.at (context));	
 	      NS_ASSERT (tAbsolute >= TimeStep (m_localCurrentTs.at (context)));
@@ -331,7 +338,9 @@ DefaultSimulatorImpl::ScheduleWithContext (uint32_t context, Time const &delay, 
       ev.key.m_ts = (uint64_t) tAbsolute.GetTimeStep ();
       ev.key.m_context = context;
       ev.key.m_uid = m_uid;
-      
+// <M>      
+      ev.key.m_eventType = ListScheduler::GetCurrEventType ();
+// <M>       
       m_uid++;
       m_unscheduledEvents++;
       m_events->Insert (ev);
@@ -363,7 +372,7 @@ DefaultSimulatorImpl::ScheduleWithContext (uint32_t prevContext, uint32_t contex
 //      Time tAbsolute = delay + TimeStep (m_currentTs);
 // <M>
       Time tAbsolute;
-      if (prevContext != 0xffffffff)
+      if (prevContext != 0xffffffff && m_implementations.at (3) == true)
         {
 	      tAbsolute = delay + TimeStep (m_localCurrentTs.at (prevContext));	
 	      NS_ASSERT (tAbsolute >= TimeStep (m_localCurrentTs.at (prevContext)));
@@ -378,6 +387,9 @@ DefaultSimulatorImpl::ScheduleWithContext (uint32_t prevContext, uint32_t contex
       ev.key.m_ts = (uint64_t) tAbsolute.GetTimeStep ();
       ev.key.m_context = context;
       ev.key.m_uid = m_uid;
+// <M>      
+      ev.key.m_eventType = ListScheduler::GetCurrEventType ();
+// <M> 
       
       m_uid++;
       m_unscheduledEvents++;
@@ -408,7 +420,7 @@ DefaultSimulatorImpl::ScheduleNow (EventImpl *event)
   ev.impl = event;
 //  ev.key.m_ts = m_currentTs;
 // <M>
-  if (GetContext () != 0xffffffff)
+  if (GetContext () != 0xffffffff && m_implementations.at (3) == true)
     {
 	  ev.key.m_ts = m_localCurrentTs.at (GetContext());	
 	}
@@ -446,7 +458,7 @@ DefaultSimulatorImpl::Now (void) const
   // Do not add function logging here, to avoid stack overflow
 //  return TimeStep (m_currentTs);
 // <M>
-  if (GetContext() != 0xffffffff)
+  if (GetContext() != 0xffffffff && m_implementations.at (3) == true)
     {
 	  return TimeStep (m_localCurrentTs.at (GetContext ()));	
 	}
@@ -467,7 +479,7 @@ DefaultSimulatorImpl::GetDelayLeft (const EventId &id) const
     {
 //      return TimeStep (id.GetTs () - m_currentTs);
 // <M>
-      if (id.GetContext () != 0xffffffff)
+      if (id.GetContext () != 0xffffffff && m_implementations.at (3) == true)
         {
 	      return TimeStep (id.GetTs () - m_localCurrentTs.at (id.GetContext ()));	
 	    }
@@ -498,6 +510,11 @@ DefaultSimulatorImpl::Remove (const EventId &id)
 //    {
 //      return;
 //    }
+  if (id.GetUid () == 0)
+    {
+	  return;	
+	}
+	
   Scheduler::Event event;
   event.impl = id.PeekEventImpl ();
   event.key.m_ts = id.GetTs ();
@@ -554,9 +571,9 @@ DefaultSimulatorImpl::IsExpired (const EventId &id) const
     }
 // <M>
   uint64_t currentTs;
-  if (GetContext () != 0xffffffff)
+  if (id.GetContext () != 0xffffffff && m_implementations.at (3) == true)
     {
-	  currentTs = m_localCurrentTs.at (GetContext ());	
+	  currentTs = m_localCurrentTs.at (id.GetContext ());	
 	}
   else
     {

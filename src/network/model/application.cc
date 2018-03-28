@@ -27,6 +27,9 @@
 #include "ns3/nstime.h"
 #include "ns3/simulator.h"
 
+#include "ns3/scheduler.h"
+#include "ns3/list-scheduler.h"
+
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("Application");
@@ -96,6 +99,7 @@ Application::DoInitialize (void)
   m_startEvent = Simulator::Schedule (m_startTime, &Application::StartApplication, this);
   if (m_stopTime != TimeStep (0))
     {
+	  ListScheduler::SetEventType (Scheduler::STOP);	
       m_stopEvent = Simulator::Schedule (m_stopTime, &Application::StopApplication, this);
     }
   Object::DoInitialize ();
