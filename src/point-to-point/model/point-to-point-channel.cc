@@ -105,13 +105,13 @@ PointToPointChannel::TransmitStart (
   ListScheduler::SetTransmitEvent (true);
   ListScheduler::SetEventType (Scheduler::NODE);
   ListScheduler::SetPacketSize (p->GetSize ());
-  char buf[64];
-  memset (buf, 0, sizeof(buf));
-  snprintf (buf, sizeof(buf), "Packet %llu, size %u, src %u, dst %u",
-    p->GetUid(), p->GetSize(), m_link[wire].m_src->GetNode()->GetId(),
-    m_link[wire].m_dst->GetNode()->GetId());
-  s2e_warning (buf);
-  memset (buf, 0, sizeof(buf));
+  //char buf[64];
+  //memset (buf, 0, sizeof(buf));
+  //snprintf (buf, sizeof(buf), "Packet %llu, size %u, src %u, dst %u",
+    //p->GetUid(), p->GetSize(), m_link[wire].m_src->GetNode()->GetId(),
+    //m_link[wire].m_dst->GetNode()->GetId());
+  //s2e_warning (buf);
+  //memset (buf, 0, sizeof(buf));
   // <M>
 
   Simulator::ScheduleWithContext (m_link[wire].m_src->GetNode ()->GetId (),

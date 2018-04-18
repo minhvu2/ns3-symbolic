@@ -46,5 +46,15 @@ void
 SimulatorImpl::ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, EventImpl *event)
 {
 }
+
+void
+SimulatorImpl::SetInterval (uint64_t interval)
+{
+}
+
+void
+SimulatorImpl::SetNumberSymPackets (uint32_t numpackets)
+{
+}
 	
 } // namespace ns3

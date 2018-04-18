@@ -184,6 +184,20 @@ Simulator::Destroy (void)
   *pimpl = 0;
 }
 
+// <M>
+void
+Simulator::SetInterval (uint64_t interval)
+{
+  GetImpl ()->SetInterval (interval);	
+}
+
+void
+Simulator::SetNumberSymPackets (uint32_t numpackets)
+{
+  GetImpl ()->SetNumberSymPackets (numpackets);	
+}
+// <M>
+
 void
 Simulator::SetScheduler (ObjectFactory schedulerFactory)
 {

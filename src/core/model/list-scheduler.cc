@@ -62,9 +62,10 @@ ListScheduler::~ListScheduler ()
 }
 
 // <M>
-uint32_t ListScheduler::m_numSymEvents = 0;
-uint64_t ListScheduler::m_maxBound = 1200;
-uint64_t ListScheduler::m_symTime = 0;
+uint32_t ListScheduler::m_numpackets = 0;
+uint64_t ListScheduler::m_interval = 1024;
+//uint64_t ListScheduler::m_symTime = 0;
+uint32_t ListScheduler::m_firstSymPacket = 0;
 
 bool ListScheduler::m_usePathReduction = true;
 bool ListScheduler::m_useWaitingList = true;
@@ -77,6 +78,18 @@ uint32_t ListScheduler::m_currPacketSize = 0;
 Scheduler::EventSchedulers_t ListScheduler::m_currEventType = UNDEFINED;
 bool ListScheduler::m_isNodeVectorInitialized = false;
 bool ListScheduler::debug = false;
+
+void
+ListScheduler::SetInterval (uint64_t interval)
+{
+  m_interval = interval;
+}
+
+void
+ListScheduler::SetNumberSymPackets (uint32_t numpackets)
+{
+  m_numpackets = numpackets;
+}
 
 void
 ListScheduler::SetPathReduction (bool value)
@@ -335,12 +348,12 @@ ListScheduler::InsertBackToMainList_FrontIsTimeout (Events &subList, const Event
 void
 ListScheduler::InsertWaitingList (Events &subList, EventsI start, const Event &ev)
 {
-  if (debug)	
-    {
-      printf("InsertIntoMainList-1-Start \n");
-      PrintDebugInfo (subList, 1, 1);
-      printf ("Inserting loop start at event id %u \n", start->key.m_uid);
-    }  
+  //if (debug)	
+    //{
+      //printf("InsertIntoMainList-1-Start \n");
+      //PrintDebugInfo (subList, 1, 1);
+      //printf ("Inserting loop start at event id %u \n", start->key.m_uid);
+    //}  
    
   if (m_usePathReduction == true)
     {   
@@ -358,7 +371,7 @@ ListScheduler::InsertWaitingList (Events &subList, EventsI start, const Event &e
 		  if (InsertPathReduction (i, ev))
 			{
 			  subList.insert (i, ev);
-			  printf ("Inserting event %u into sub list\n", ev.key.m_uid);
+			  //printf ("Inserting event %u into sub list\n", ev.key.m_uid);
 			  //PrintDebugInfo (subList, ev.key.m_uid, i->key.m_uid);
 			  return;
 			}
@@ -460,9 +473,11 @@ ListScheduler::Insert (const Event &ev)
     {
           (const_cast<Event&>(ev)).key.m_isTransEvent = true;
           (const_cast<Event&>(ev)).key.m_packetSize = m_currPacketSize;
-          if (ev.key.m_packetSize > 58 && m_numSymEvents < 1000)
+          m_firstSymPacket++;
+          //if (ev.key.m_packetSize > 58 && m_numSymEvents < 1000)
+          if (m_firstSymPacket >= 2 && m_numpackets > 0)
             {
-              m_numSymEvents++;
+			  m_numpackets--;	
               snprintf (buf, sizeof(buf), "Setting event id %u to symbolic !!!!!",
                 ev.key.m_uid);
               s2e_warning (buf);
@@ -485,9 +500,9 @@ ListScheduler::Insert (const Event &ev)
       (const_cast<Event&>(ev)).key.m_isTransEvent = false;
       (const_cast<Event&>(ev)).key.m_packetSize = 0;
     } 
-  snprintf (buf, sizeof(buf), "New event %u to be inserted", ev.key.m_uid);
-  s2e_warning (buf);
-  memset (buf, 0, sizeof(buf));
+  //snprintf (buf, sizeof(buf), "New event %u to be inserted", ev.key.m_uid);
+  //s2e_warning (buf);
+  //memset (buf, 0, sizeof(buf));
 
   const_cast<Event&>(ev).key.m_eventType = m_currEventType;
   SetEventType (UNDEFINED);
@@ -536,8 +551,8 @@ ListScheduler::Insert (const Event &ev)
     }
   
   // No technique used except end of simulation
-  if (m_usePathReduction == false)
-    {
+  //if (m_usePathReduction == false)
+    //{
 	  for (EventsI i = m_events.begin (); i != m_events.end (); i++)
 	    {
 		  if (ev.key < i->key)
@@ -554,11 +569,11 @@ ListScheduler::Insert (const Event &ev)
 		}
 	  m_events.push_back (ev);
 	  return;		
-	}  	 
+	//}  	 
 
-  snprintf (buf, sizeof (buf), "Fail to insert event id %u", ev.key.m_uid);
-  s2e_warning (buf);
-  memset (buf, 0, sizeof (buf));
+  //snprintf (buf, sizeof (buf), "Fail to insert event id %u", ev.key.m_uid);
+  //s2e_warning (buf);
+  //memset (buf, 0, sizeof (buf));
 }
 
 bool
@@ -667,11 +682,11 @@ ListScheduler::CheckFrontEvent (Events &subList)
         }   				
     }
     
-  if (debug)
-    {
+  //if (debug)
+    //{
 	  //printf ("Main list after extracting events from waiting list size %u \n", subList.size());  
-      PrintDebugInfo (subList, 1, 1); 	
-	}	      	
+      //PrintDebugInfo (subList, 1, 1); 	
+	//}	      	
 }
 
 Scheduler::Event
@@ -703,12 +718,12 @@ ListScheduler::RemoveNextLocalList (void)
 		  if (!m_nodesEvents.at (i).empty () &&
 		      next.key.m_ts > m_nodesEvents.at (i).front ().key.m_ts + 0)
 		    {
-			  if (debug)
-			    {	
+			  //if (debug)
+			    //{	
 			      //printf ("Next event is not a simulator one.\n");
 			      //printf ("Front event id %u - %lu ms at node %u.\n", m_nodesEvents.at (i).front ().key.m_uid,
 			      //        m_nodesEvents.at (i).front ().key.m_ts, m_nodesEvents.at (i).front ().key.m_context);
-			    }	
+			    //}	
 			  foundNext = false;
 			  break;	
 			} 	
@@ -776,15 +791,15 @@ ListScheduler::RemoveNext (void)
 	  return next;	
 	}
 
-  if (m_useWaitingList == false)
-    {
+  //if (m_useWaitingList == false)
+    //{
 	  next = m_events.front ();
 	  m_events.pop_front ();
 	  return next;			
-	}		
+	//}		
 
-  printf ("Error: Should not reach this statement \n");
-  return next;  
+  //printf ("Error: Should not reach this statement \n");
+  //return next;  
 }
 
 void
@@ -802,11 +817,11 @@ ListScheduler::RemoveWaitingList (Events &subList, const Event &ev)
             {
 			  //printf ("Remove-1, i id %u - %lu ms, pending list size %lu \n",
 			  //        i->key.m_uid, i->key.m_ts, i->pendingEvents.size());
-			  if (debug)
-			  {        
+			  //if (debug)
+			  //{        
 			    //printf ("-next pending list in Remove---");
-		        PrintDebugInfo (i->pendingEvents, 1, 1);
-		      }        	
+		        //PrintDebugInfo (i->pendingEvents, 1, 1);
+		      //}        	
 		      Event pendingEv = i->pendingEvents.front ();
 		      i->pendingEvents.pop_front ();
 		      // Event ev is removed, insert pending events from ev++
@@ -908,8 +923,8 @@ ListScheduler::Remove (const Event &ev)
 	}    
 
   // At this point, local lists and waiting lists are not used
-  if (m_useWaitingList == false)
-    {
+  //if (m_useWaitingList == false)
+    //{
 	  for (EventsI i = m_events.begin (); i != m_events.end (); i++)
 		{
 		  if (i->key.m_uid == ev.key.m_uid)
@@ -919,9 +934,9 @@ ListScheduler::Remove (const Event &ev)
 			  return;
 			}
 		}
-	}  
+	//}  
      
-  NS_ASSERT (false);
+  //NS_ASSERT (false);
 }
 
 } // namespace ns3

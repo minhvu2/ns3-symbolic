@@ -70,6 +70,11 @@ class Scheduler;
 class Simulator 
 {
 public:
+  // <M>
+  static void SetInterval (uint64_t interval);
+  static void SetNumberSymPackets (uint32_t numpackets);
+  // <M>
+
   /**
    * @param [in] impl A new simulator implementation.
    *

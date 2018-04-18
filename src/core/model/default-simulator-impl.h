@@ -70,6 +70,8 @@ public:
   virtual void ScheduleWithContext (uint32_t context, Time const &delay, EventImpl *event);
   // <M>
   virtual void ScheduleWithContext (uint32_t prevContext, uint32_t context, Time const &delay, EventImpl *event);
+  virtual void SetInterval (uint64_t interval);
+  virtual void SetNumberSymPackets (uint32_t numpackets);
   // <M>
   virtual EventId ScheduleNow (EventImpl *event);
   virtual EventId ScheduleDestroy (EventImpl *event);

@@ -30,6 +30,8 @@
 #include "ns3/propagation-loss-model.h"
 #include "ns3/propagation-delay-model.h"
 
+#include "ns3/list-scheduler.h"
+
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("YansWifiChannel");
@@ -117,6 +119,10 @@ YansWifiChannel::Send (Ptr<YansWifiPhy> sender, Ptr<const Packet> packet, double
           parameters.duration = duration;
           parameters.txVector = txVector;
           parameters.preamble = preamble;
+          
+          // <M>
+          ListScheduler::SetTransmitEvent (true);
+          ListScheduler::SetPacketSize (packet->GetSize ());
 
           Simulator::ScheduleWithContext (dstNode,
                                           delay, &YansWifiChannel::Receive, this,

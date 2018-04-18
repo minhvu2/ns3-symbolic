@@ -67,7 +67,10 @@ public:
   static void SetPathReduction (bool value);
   static void SetWaitingList (bool value);
   static void SetLocalList (bool value);
-  static void SetEndOfSim (bool value);    
+  static void SetEndOfSim (bool value);
+  
+  static void SetInterval (uint64_t interval);
+  static void SetNumberSymPackets (uint32_t numpackets);     
   // <M>
 
   // Inherited
@@ -88,9 +91,10 @@ private:
 
   // <M>
   /** Parameters for symbolic execution. */
-  static uint32_t m_numSymEvents;
-  static uint64_t m_symTime;
-  static uint64_t m_maxBound;
+  static uint32_t m_numpackets;
+//  static uint64_t m_symTime;
+  static uint64_t m_interval;
+  static uint32_t m_firstSymPacket;
   
   /** Set techniques to use. */
   static bool m_usePathReduction;

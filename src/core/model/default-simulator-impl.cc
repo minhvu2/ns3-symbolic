@@ -154,6 +154,20 @@ DefaultSimulatorImpl::SetScheduler (ObjectFactory schedulerFactory)
   m_events = scheduler;
 }
 
+// <M>
+void
+DefaultSimulatorImpl::SetInterval (uint64_t interval)
+{
+  ListScheduler::SetInterval (interval);	
+}
+
+void
+DefaultSimulatorImpl::SetNumberSymPackets (uint32_t numpackets)
+{
+  ListScheduler::SetNumberSymPackets (numpackets);	
+}
+// <M>
+
 // System ID for non-distributed simulation is always zero
 uint32_t 
 DefaultSimulatorImpl::GetSystemId (void) const

@@ -235,8 +235,11 @@ CsmaChannel::TransmitEnd ()
           // <M> add parameter for source id (local clock)
           //printf ("CSMA - sending packet from node %u to node %u - arrive in %lu ms \n",
                   //m_currentSrc, it->devicePtr->GetNode ()->GetId (), m_delay.GetMilliSeconds ());
-          ListScheduler::SetTransmitEvent (true);
-          ListScheduler::SetPacketSize (m_currentPkt->GetSize ());
+          if (m_currentSrc != it->devicePtr->GetNode ()->GetId ())
+            {        
+              ListScheduler::SetTransmitEvent (true);
+              ListScheduler::SetPacketSize (m_currentPkt->GetSize ());
+		    }
           Simulator::ScheduleWithContext (m_currentSrc, it->devicePtr->GetNode ()->GetId (),
                                           m_delay,
                                           &CsmaNetDevice::Receive, it->devicePtr,
