@@ -75,7 +75,7 @@ DefaultSimulatorImpl::DefaultSimulatorImpl ()
   m_currentTs = 0;
   // <M>
   // initialize local clocks
-  m_numNodes = 2;
+  m_numNodes = 4;
   ListScheduler::SetNumNodes (m_numNodes);
   for (uint32_t i=0; i < m_numNodes; i++)
     {
@@ -165,6 +165,12 @@ void
 DefaultSimulatorImpl::SetNumberSymPackets (uint32_t numpackets)
 {
   ListScheduler::SetNumberSymPackets (numpackets);	
+}
+
+void
+DefaultSimulatorImpl::SetFirstSymPacket (uint64_t firstSymPacket)
+{
+  ListScheduler::SetFirstSymPacket (firstSymPacket);	
 }
 // <M>
 

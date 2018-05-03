@@ -196,6 +196,12 @@ Simulator::SetNumberSymPackets (uint32_t numpackets)
 {
   GetImpl ()->SetNumberSymPackets (numpackets);	
 }
+
+void
+Simulator::SetFirstSymPacket (uint64_t firstSymPacket)
+{
+  GetImpl ()->SetFirstSymPacket (firstSymPacket);	
+}
 // <M>
 
 void

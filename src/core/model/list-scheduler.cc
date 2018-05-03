@@ -65,7 +65,9 @@ ListScheduler::~ListScheduler ()
 uint32_t ListScheduler::m_numpackets = 0;
 uint64_t ListScheduler::m_interval = 1024;
 //uint64_t ListScheduler::m_symTime = 0;
-uint32_t ListScheduler::m_firstSymPacket = 0;
+uint64_t ListScheduler::m_firstSymPacket = 0;
+uint32_t ListScheduler::m_symLink[2] = {0xffffffff, 0xffffffff};
+uint64_t ListScheduler::m_packetId = 0;
 
 bool ListScheduler::m_usePathReduction = true;
 bool ListScheduler::m_useWaitingList = true;
@@ -78,6 +80,25 @@ uint32_t ListScheduler::m_currPacketSize = 0;
 Scheduler::EventSchedulers_t ListScheduler::m_currEventType = UNDEFINED;
 bool ListScheduler::m_isNodeVectorInitialized = false;
 bool ListScheduler::debug = false;
+
+void
+ListScheduler::SetPacketId (uint64_t packetId)
+{
+  m_packetId = packetId;
+}
+
+void
+ListScheduler::SetSymLink (uint32_t node1, uint32_t node2)
+{
+  m_symLink[0] = node1;
+  m_symLink[1] = node2;
+}
+
+void
+ListScheduler::SetFirstSymPacket (uint64_t firstSymPacket)
+{
+  m_firstSymPacket = firstSymPacket;
+}
 
 void
 ListScheduler::SetInterval (uint64_t interval)
@@ -214,10 +235,10 @@ ListScheduler::InsertPathReduction (EventsI i, const Event &ev)
 void
 ListScheduler::InsertMultiList (Events &subList, const Event &ev)
 {
-  if (debug)
-    {
-	  printf ("InsertIntoSubList-1\n");  
-	}
+  //if (debug)
+    //{
+	  //printf ("InsertIntoSubList-1\n");  
+	//}
 
   if (m_useWaitingList == false) // Local lists without waiting lists
     {
@@ -471,29 +492,32 @@ ListScheduler::Insert (const Event &ev)
   // Only make m_ts of transmit events symbolic
   if (m_isTransmitEvent)
     {
-          (const_cast<Event&>(ev)).key.m_isTransEvent = true;
-          (const_cast<Event&>(ev)).key.m_packetSize = m_currPacketSize;
-          m_firstSymPacket++;
+      (const_cast<Event&>(ev)).key.m_isTransEvent = true;
+      (const_cast<Event&>(ev)).key.m_packetSize = m_currPacketSize;
+      if (m_symLink[0] == 0 || m_symLink[1] == 0)
+        {
+          m_packetId++;
           //if (ev.key.m_packetSize > 58 && m_numSymEvents < 1000)
-          if (m_firstSymPacket >= 2 && m_numpackets > 0)
+          if (m_packetId >= m_firstSymPacket && m_numpackets > 0)
             {
 			  m_numpackets--;	
-              snprintf (buf, sizeof(buf), "Setting event id %u to symbolic !!!!!",
-                ev.key.m_uid);
+              snprintf (buf, sizeof(buf), "Setting event id %u to symbolic !!!!!", ev.key.m_uid);
               s2e_warning (buf);
               memset (buf, 0, sizeof(buf));
               // New symbolic delay for each data packet
               uint64_t sym_ts;
               s2e_enable_forking ();
               s2e_make_symbolic (&sym_ts, sizeof(uint64_t), "Symbolic Delay");
-              if (sym_ts > m_maxBound)
-              {
-                s2e_kill_state (0, "Out of Range");
-              }
+              if (sym_ts > m_interval)
+                {
+                  s2e_kill_state (0, "Out of Range");
+                }
               (const_cast<Event&>(ev)).key.m_ts += sym_ts;
             }
-          SetTransmitEvent (false);
-//        printf("Event to be inserted is a transmit event \n");
+        }
+	  SetSymLink (0xffffffff, 0xffffffff);  
+      SetTransmitEvent (false);
+//    printf("Event to be inserted is a transmit event \n");
     }
   else
     {
@@ -647,17 +671,17 @@ ListScheduler::PeekNext (void) const
 void
 ListScheduler::CheckFrontEvent (Events &subList)
 {
-  if (debug)
-    {
+  //if (debug)
+    //{
       //printf ("---RemoveNext-1-Start \n");
       //printf ("Main list before removing next event size %u \n", subList.size());  
-      PrintDebugInfo (subList, 1, 1);
-    }
+      //PrintDebugInfo (subList, 1, 1);
+    //}
     
-  if (subList.empty())
-    {
-	  return;	
-	}
+  //if (subList.empty())
+    //{
+	  //return;	
+	//}
 	  
   EventsI nextI = subList.begin ();
 	
@@ -696,11 +720,17 @@ ListScheduler::RemoveNextLocalList (void)
   // If there is, extract events from its waiting list
   if (m_useWaitingList == true) // local lists and waiting lists
     {
-	  CheckFrontEvent (m_simEvents);
+	  if (!m_simEvents.empty () && !m_simEvents.begin ()->pendingEvents.empty())
+	    {	
+	      CheckFrontEvent (m_simEvents);
+	    }  
 	  for (unsigned i = 0; i < m_nodesEvents.size(); i++)
 	    {
-		  CheckFrontEvent (m_nodesEvents.at (i));	
-		}	
+		  if (!m_nodesEvents.at (i).empty () && !m_nodesEvents.at (i).begin ()->pendingEvents.empty())
+		    {	
+		      CheckFrontEvent (m_nodesEvents.at (i));	
+		    }
+		}
 	}
 
   // After extracting events from waiting list of all front events,
@@ -714,18 +744,32 @@ ListScheduler::RemoveNextLocalList (void)
 	  //        next.key.m_uid, next.key.m_ts, next.key.m_context);	
 	  for (unsigned i = 0; i < m_nodesEvents.size (); i++)
 	    {
-		  // simulator events have impact latency of 0	
-		  if (!m_nodesEvents.at (i).empty () &&
-		      next.key.m_ts > m_nodesEvents.at (i).front ().key.m_ts + 0)
+		  // simulator events have impact latency of 0 to other nodes
+		  if (!m_nodesEvents.at (i).empty ())
 		    {
-			  //if (debug)
-			    //{	
-			      //printf ("Next event is not a simulator one.\n");
-			      //printf ("Front event id %u - %lu ms at node %u.\n", m_nodesEvents.at (i).front ().key.m_uid,
-			      //        m_nodesEvents.at (i).front ().key.m_ts, m_nodesEvents.at (i).front ().key.m_context);
-			    //}	
-			  foundNext = false;
-			  break;	
+			  // if simulator event id is smaller	
+		      if (next.key.m_uid < m_nodesEvents.at (i).front ().key.m_uid)
+		        {	
+		          if (next.key.m_ts > m_nodesEvents.at (i).front ().key.m_ts)
+		            {
+			          //if (debug)
+			            //{	
+			              //printf ("Next event is not a simulator one.\n");
+			              //printf ("Front event id %u - %lu ms at node %u.\n", m_nodesEvents.at (i).front ().key.m_uid,
+			              //        m_nodesEvents.at (i).front ().key.m_ts, m_nodesEvents.at (i).front ().key.m_context);
+			          //}	
+			          foundNext = false;
+			          break;
+				    }
+			    }
+			  else // simulator event id is larger thus its timestamp must be strictly lesser
+			    {
+				  if (next.key.m_ts >= m_nodesEvents.at (i).front ().key.m_ts)
+				    {
+					  foundNext = false;
+					  break;	 
+					} 	
+				}    	
 			} 	
 		}
 	}
@@ -868,7 +912,7 @@ ListScheduler::RemoveWaitingList (Events &subList, const Event &ev)
 				}	    
 			}	    
 		}	   	    
-	}	
+	}
 }
 
 void

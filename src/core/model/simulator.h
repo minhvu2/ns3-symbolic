@@ -73,6 +73,7 @@ public:
   // <M>
   static void SetInterval (uint64_t interval);
   static void SetNumberSymPackets (uint32_t numpackets);
+  static void SetFirstSymPacket (uint64_t firstSymPacket);
   // <M>
 
   /**

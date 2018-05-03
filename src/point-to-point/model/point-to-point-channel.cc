@@ -105,6 +105,9 @@ PointToPointChannel::TransmitStart (
   ListScheduler::SetTransmitEvent (true);
   ListScheduler::SetEventType (Scheduler::NODE);
   ListScheduler::SetPacketSize (p->GetSize ());
+  ListScheduler::SetSymLink (m_link[wire].m_src->GetNode ()->GetId (),
+                             m_link[wire].m_dst->GetNode ()->GetId ());
+  //ListScheduler::SetPacketId (p->GetUid ());
   //char buf[64];
   //memset (buf, 0, sizeof(buf));
   //snprintf (buf, sizeof(buf), "Packet %llu, size %u, src %u, dst %u",

@@ -70,7 +70,10 @@ public:
   static void SetEndOfSim (bool value);
   
   static void SetInterval (uint64_t interval);
-  static void SetNumberSymPackets (uint32_t numpackets);     
+  static void SetNumberSymPackets (uint32_t numpackets);
+  static void SetFirstSymPacket (uint64_t firstSymPacket);
+  static void SetSymLink (uint32_t node1, uint32_t node2);
+  static void SetPacketId (uint64_t packetId);     
   // <M>
 
   // Inherited
@@ -94,7 +97,9 @@ private:
   static uint32_t m_numpackets;
 //  static uint64_t m_symTime;
   static uint64_t m_interval;
-  static uint32_t m_firstSymPacket;
+  static uint64_t m_firstSymPacket;
+  static uint32_t m_symLink[2];
+  static uint64_t m_packetId;
   
   /** Set techniques to use. */
   static bool m_usePathReduction;

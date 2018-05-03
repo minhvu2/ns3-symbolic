@@ -56,5 +56,10 @@ void
 SimulatorImpl::SetNumberSymPackets (uint32_t numpackets)
 {
 }
+
+void
+SimulatorImpl::SetFirstSymPacket (uint64_t firstSymPacket)
+{
+}
 	
 } // namespace ns3
