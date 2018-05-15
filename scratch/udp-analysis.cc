@@ -116,7 +116,7 @@ main (int argc, char *argv[])
   UdpServerHelper server (port);
   ApplicationContainer apps = server.Install (n.Get (1));
   apps.Start (Seconds (1.0));
-  apps.Stop (Seconds (10.0));
+  apps.Stop (Seconds (50.0));
 
 //
 // Create one UdpClient application to send UDP datagrams from node zero to
@@ -131,17 +131,17 @@ main (int argc, char *argv[])
   client.SetAttribute ("PacketSize", UintegerValue (MaxPacketSize));
   apps = client.Install (n.Get (0));
   apps.Start (Seconds (2.0));
-  apps.Stop (Seconds (10.0));
+  apps.Stop (Seconds (50.0));
   
-  AsciiTraceHelper ascii;
-  pointToPoint.EnableAsciiAll (ascii.CreateFileStream ("udp-client-server.tr"));
-  pointToPoint.EnablePcapAll ("udp-client-server", true);
+  //AsciiTraceHelper ascii;
+  //pointToPoint.EnableAsciiAll (ascii.CreateFileStream ("udp-client-server.tr"));
+  //pointToPoint.EnablePcapAll ("udp-client-server", true);
 
 //
 // Now, do the actual simulation.
 //
   NS_LOG_INFO ("Run Simulation.");
-  Simulator::Stop (Seconds (10.0));
+  Simulator::Stop (Seconds (50.0));
   Simulator::Run ();
   Simulator::Destroy ();
   NS_LOG_INFO ("Done.");

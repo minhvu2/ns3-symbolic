@@ -494,7 +494,7 @@ ListScheduler::Insert (const Event &ev)
     {
       (const_cast<Event&>(ev)).key.m_isTransEvent = true;
       (const_cast<Event&>(ev)).key.m_packetSize = m_currPacketSize;
-      if (m_symLink[0] == 0 || m_symLink[1] == 0)
+      if ((m_symLink[0] == 0 && m_symLink[1] == 1) || (m_symLink[0] == 1 && m_symLink[1] == 0))
         {
           m_packetId++;
           //if (ev.key.m_packetSize > 58 && m_numSymEvents < 1000)
