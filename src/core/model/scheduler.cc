@@ -49,4 +49,10 @@ Scheduler::GetTypeId (void)
   return tid;
 }
 
+uint32_t
+Scheduler::RemoveAll (uint32_t context)
+{
+  return 0;	
+}
+
 } // namespace ns3

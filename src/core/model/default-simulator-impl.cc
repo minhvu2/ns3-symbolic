@@ -32,6 +32,7 @@
 
 // <M>
 #include "list-scheduler.h"
+#include "s2e.h"
 // <M>
 
 
@@ -109,11 +110,11 @@ DefaultSimulatorImpl::DoDispose (void)
   NS_LOG_FUNCTION (this);
   ProcessEventsWithContext ();
 
-  while (!m_events->IsEmpty ())
-    {
-      Scheduler::Event next = m_events->RemoveNext ();
-      next.impl->Unref ();
-    }
+  //while (!m_events->IsEmpty ())
+    //{
+      //Scheduler::Event next = m_events->RemoveNext ();
+      //next.impl->Unref ();
+    //}
   m_events = 0;
   SimulatorImpl::DoDispose ();
 }
@@ -126,10 +127,10 @@ DefaultSimulatorImpl::Destroy ()
       Ptr<EventImpl> ev = m_destroyEvents.front ().PeekEventImpl ();
       m_destroyEvents.pop_front ();
       NS_LOG_LOGIC ("handle destroy " << ev);
-      if (!ev->IsCancelled ())
-        {
-          ev->Invoke ();
-        }
+      //if (!ev->IsCancelled ())
+        //{
+          //ev->Invoke ();
+        //}
     }
 }
 
@@ -210,6 +211,16 @@ DefaultSimulatorImpl::ProcessOneEvent (void)
 //  printf ("ProcessOneEvent-1\n");
   next.impl->Invoke ();
   next.impl->Cancel ();
+  
+  if (m_implementations.at (4) == true)
+    {
+	  if (next.key.m_eventType == Scheduler::STOP && next.key.m_context != 0xffffffff)
+	    {
+		  uint32_t num = m_events->RemoveAll (next.key.m_context);
+		  m_unscheduledEvents -= num;	
+		}	
+	}
+  
   next.impl->Unref ();
 
 //  printf ("ProcessOneEvent-2\n");
@@ -273,7 +284,7 @@ DefaultSimulatorImpl::Run (void)
 
   // If the simulator stopped naturally by lack of events, make a
   // consistency test to check that we didn't lose any events along the way.
-  NS_ASSERT (!m_events->IsEmpty () || m_unscheduledEvents == 0);
+  //NS_ASSERT (!m_events->IsEmpty () || m_unscheduledEvents == 0);
 }
 
 void 
@@ -281,6 +292,13 @@ DefaultSimulatorImpl::Stop (void)
 {
   NS_LOG_FUNCTION (this);
   m_stop = true;
+  if (m_implementations.at (3) == true)
+    {
+	  for (uint32_t i = 0; i < m_numNodes; i++)
+	    {
+		  m_localCurrentTs.at (i) = m_currentTs;	
+		}	
+	}
 }
 
 void 
@@ -598,11 +616,21 @@ DefaultSimulatorImpl::IsExpired (const EventId &id) const
   else
     {
 	  currentTs = m_currentTs;	
-	}
+	}	
+  if (s2e_is_symbolic (&currentTs, sizeof(uint64_t)))
+    {
+      s2e_get_example (&currentTs, sizeof(uint64_t));
+    }
+    
+  uint64_t eventTs = id.GetTs ();
+  if (s2e_is_symbolic (&eventTs, sizeof(uint64_t)))
+    {
+      s2e_get_example (&eventTs, sizeof(uint64_t));
+    }  	
 	
   if (id.PeekEventImpl () == 0 ||
-      id.GetTs () < currentTs ||
-      (id.GetTs () == currentTs &&
+      eventTs < currentTs ||
+      (eventTs == currentTs &&
        id.GetUid () <= m_currentUid) ||
       id.PeekEventImpl ()->IsCancelled ()) 
     {

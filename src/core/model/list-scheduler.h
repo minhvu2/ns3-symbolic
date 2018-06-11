@@ -73,10 +73,11 @@ public:
   static void SetNumberSymPackets (uint32_t numpackets);
   static void SetFirstSymPacket (uint64_t firstSymPacket);
   static void SetSymLink (uint32_t node1, uint32_t node2);
-  static void SetPacketId (uint64_t packetId);     
+  static void SetPacketId (uint64_t packetId);    
   // <M>
 
   // Inherited
+  virtual uint32_t RemoveAll (uint32_t context); 
   virtual void Insert (const Scheduler::Event &ev);
   virtual bool IsEmpty (void) const;
   virtual Scheduler::Event PeekNext (void) const;

@@ -156,6 +156,11 @@ public:
    * \param [in] ev The event to remove
    */
   virtual void Remove (const Event &ev) = 0;
+  // <M>
+  /**
+   * Remove all events from an event list.
+   */
+  virtual uint32_t RemoveAll (uint32_t context); 
 };
 
 /**
