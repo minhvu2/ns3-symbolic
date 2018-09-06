@@ -88,6 +88,18 @@ main (int argc, char *argv[])
   Simulator::SetNumberSymPackets (numpackets);
   Simulator::SetFirstSymPacket (firstSymPacket);
 
+  std::vector <std::vector<uint32_t> > interfaces;
+  interfaces.resize (4);
+  uint32_t node0 [1] = {2};
+  interfaces.at (0).assign (node0, node0+1);
+  uint32_t node1 [1] = {2};
+  interfaces.at (1).assign (node1, node1+1);
+  uint32_t node2 [3] = {0, 1, 3};
+  interfaces.at (2).assign (node2, node2+3);
+  uint32_t node3 [1] = {2};
+  interfaces.at (3).assign (node3, node3+1);
+  Simulator::SetInterfaceInfo (interfaces);
+
   // Here, we will explicitly create four nodes.  In more sophisticated
   // topologies, we could configure a node factory.
   NS_LOG_INFO ("Create nodes.");
@@ -187,6 +199,7 @@ main (int argc, char *argv[])
 //  p2p.EnablePcapAll ("simple-error-model");
 
   NS_LOG_INFO ("Run Simulation.");
+  Simulator::Stop (Seconds (10.0));
   Simulator::Run ();
   Simulator::Destroy ();
   NS_LOG_INFO ("Done.");

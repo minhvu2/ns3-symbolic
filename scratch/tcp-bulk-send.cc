@@ -66,6 +66,14 @@ main (int argc, char *argv[])
   Simulator::SetInterval (interval);
   Simulator::SetNumberSymPackets (numpackets);
   Simulator::SetFirstSymPacket (firstSymPacket);
+  
+  std::vector <std::vector<uint32_t> > interfaces;
+  interfaces.resize (2);
+  uint32_t node0 [1] = {1};
+  interfaces.at (0).assign (node0, node0+1);
+  uint32_t node1 [1] = {0};
+  interfaces.at (1).assign (node1, node1+1);
+  Simulator::SetInterfaceInfo (interfaces);
 
 //
 // Explicitly create the nodes required by the topology (shown above).

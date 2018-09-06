@@ -35,6 +35,9 @@
 #include "ns3/ipv4-packet-info-tag.h"
 #include "ns3/loopback-net-device.h"
 
+#include <stdio.h>
+#include "s2e.h"
+
 #define RIP_ALL_NODE "224.0.0.9"
 #define RIP_PORT 520
 
@@ -1062,6 +1065,85 @@ void Rip::HandleResponses (RipHeader hdr, Ipv4Address senderAddress, uint32_t in
 
   if (changed)
     {
+	  // <M>
+	  //printf ("Node: %u, %u, %u --- Route changed \n", GetObject<Node> ()->GetId (),
+	          //this->GetObject<Node> ()->GetId (), m_ipv4->GetObject<Node> ()->GetId ());
+	  
+	  if (GetObject<Node> ()->GetId () == 2)
+	    {
+		  bool updated = true; 	
+		  Routes routingTable;
+		  
+		  // Node 4 --------
+		  //RipRoutingTableEntry* route = new RipRoutingTableEntry (Ipv4Address ("10.0.0.0"), 
+		                                //Ipv4Mask ("255.255.255.0"), Ipv4Address ("10.0.2.1"), 1);
+		  //route->SetRouteChanged (false); //use to check if an entry is updated                              
+		  //routingTable.push_front (std::make_pair (route, EventId ()));
+		  //route = new RipRoutingTableEntry (Ipv4Address ("10.0.1.0"), 
+		                                //Ipv4Mask ("255.255.255.0"), Ipv4Address ("10.0.2.1"), 1);
+		  //route->SetRouteChanged (false);                              
+		  //routingTable.push_front (std::make_pair (route, EventId ()));
+		  //route = new RipRoutingTableEntry (Ipv4Address ("10.0.6.0"), 
+		                                //Ipv4Mask ("255.255.255.0"), Ipv4Address ("10.0.4.2"), 3);
+		  //routingTable.push_front (std::make_pair (route, EventId ()));
+		  //route->SetRouteChanged (false);
+		  // ------------
+		  
+		  // Node 2 --------
+		  RipRoutingTableEntry* route = new RipRoutingTableEntry (Ipv4Address ("10.0.6.0"), 
+		                                Ipv4Mask ("255.255.255.0"), Ipv4Address ("10.0.2.2"), 3);
+		  routingTable.push_front (std::make_pair (route, EventId ()));
+		  route->SetRouteChanged (false);
+		  // ------------
+		  
+		  for (RoutesI it = routingTable.begin (); it != routingTable.end (); it++)
+		    {
+			  RipRoutingTableEntry* i = it->first;
+			  for (RoutesI ite = m_routes.begin (); ite != m_routes.end (); ite++)
+			    {
+				  RipRoutingTableEntry* j = ite->first;				  
+				  if (i->GetDest () == j->GetDest ()) //&& i->GetDestNetworkMask () == j->GetDestNetworkMask ())
+				    {
+				      if (i->GetInterface () == j->GetInterface () && i->GetGateway () == j->GetGateway ())
+				        {
+						  //printf ("i interface: %u and j interface: %u \n", i->GetInterface (), j->GetInterface ());
+						  //printf ("i dst: ");
+						  //i->GetDest ().Print (std::cout);
+						  //printf (" and j dst: ");
+						  //j->GetDest ().Print (std::cout);
+						  //printf ("\n");
+						  //printf ("i gateway: ");
+						  //i->GetGateway ().Print (std::cout);
+						  //printf (" and j gateway: ");
+						  //j->GetGateway ().Print (std::cout);
+						  //printf ("\n");
+						  //PrintRoutingTable (Create<OutputStreamWrapper> (&std::cout));	
+					      i->SetRouteChanged (true);
+					      break;
+					    }  	
+					}    	
+				}	
+			}
+		  
+		  for (RoutesI it = routingTable.begin (); it != routingTable.end (); it++)
+		    {
+			  if (!it->first->IsRouteChanged())
+			    {
+				  updated = false;	
+				}			  				  	
+			}
+		  if (updated)
+		    {
+			  //printf ("Node 4 routing table is updated at: %lu, local time: %lu \n",
+			  //Now ().GetTimeStep (), GetObject<Node> ()->GetLocalTime ().GetTimeStep ());
+			  uint64_t now = GetObject<Node> ()->GetLocalTime ().GetTimeStep ();
+			  if (s2e_is_symbolic (&now, sizeof (uint64_t)))
+			    {
+			      s2e_print_expression ("Updated time", now);	
+		        }
+			}		                              	
+		}
+		// <M>
       SendTriggeredRouteUpdate ();
     }
 }

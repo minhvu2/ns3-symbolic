@@ -202,6 +202,12 @@ Simulator::SetFirstSymPacket (uint64_t firstSymPacket)
 {
   GetImpl ()->SetFirstSymPacket (firstSymPacket);	
 }
+
+void
+Simulator::SetInterfaceInfo (std::vector<std::vector<uint32_t> > interfaces)
+{
+  GetImpl ()->SetInterfaceInfo (interfaces);	
+}
 // <M>
 
 void

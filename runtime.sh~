@@ -1,0 +1,9 @@
+#!/bin/bash
+x = 5
+
+for ((i=0; i<$x; i++))
+{
+./waf --run scratch/tcp-bulk-send
+}
+
+exit 0

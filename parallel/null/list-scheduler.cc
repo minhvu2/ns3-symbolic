@@ -69,6 +69,7 @@ uint64_t ListScheduler::m_firstSymPacket = 0;
 uint32_t ListScheduler::m_symLink[2] = {0xffffffff, 0xffffffff};
 uint64_t ListScheduler::m_packetId = 0;
 std::vector<Scheduler::Node> ListScheduler::m_nodes;
+std::vector<uint64_t> ListScheduler::m_clock;
 
 bool ListScheduler::m_usePathReduction = true;
 bool ListScheduler::m_useWaitingList = true;
@@ -477,7 +478,7 @@ ListScheduler::Insert (const Event &ev)
   NS_LOG_FUNCTION (this << &ev);
   if (!m_isNodeVectorInitialized)
     {
-	  uint64_t inf = 100000000;	
+	  //uint64_t inf = 100000000;	
 	  // tcp-bulk-send
 	  //uint64_t impactLatencyMatrix [2][2] = {{0, 5}, 
 	                                         //{5, 0}};
@@ -491,18 +492,16 @@ ListScheduler::Insert (const Event &ev)
 	                                         //{6, 2, 4, 2, 2, 0}};
 	                                         
 	  // simple-error-model
-	  uint64_t impactLatencyMatrix [4][4] = {{0, inf, 2, inf}, 
-	                                         {inf, 0, 2, 13},
-	                                         {2, 2, 0, 11},
-	                                         {inf, 13, 11, 0}};
-	  //uint64_t impactLatencyMatrix [4][4] = {{0, inf, 0, inf}, 
-	                                         //{inf, 0, 0, 0},
-	                                         //{0, 0, 0, 0},
-	                                         //{inf, 0, 0, 0}};                                                                                 			  
+	  uint64_t impactLatencyMatrix [4][4] = {{0, 4, 2, 12}, 
+	                                         {4, 0, 2, 12},
+	                                         {2, 2, 0, 10},
+	                                         {12, 12, 10, 0}};                                          			  
 	  m_impactLatency.resize (m_numNodes);
+	  m_clock.resize (m_numNodes);
 	  for (unsigned i = 0; i < m_numNodes; i++)
 	    {
 		  m_impactLatency.at (i).resize (m_numNodes);
+		  m_clock.at (i) = 0;
 		  for (unsigned j = 0; j < m_numNodes; j++)
 		    {
 			  m_impactLatency.at (i).at (j) = impactLatencyMatrix [i][j];	
@@ -561,11 +560,11 @@ ListScheduler::Insert (const Event &ev)
   // Insert events into right list if local lists are used  
   if (m_useLocalList == true)
     {
-	  if (m_useLocalListv2 == true && ev.key.m_eventType == OUTGOING)
-	    {
-		  InsertMultiList (m_nodesEvents.at (ev.key.m_prevContext), ev);
-		  return;
-		}	
+	  //if (m_useLocalListv2 == true && ev.key.m_eventType == OUTGOING)
+	    //{
+		  //InsertMultiList (m_nodesEvents.at (ev.key.m_prevContext), ev);
+		  //return;
+		//}	
       if (ev.key.m_context != 0xffffffff)
 	    {
 	      InsertMultiList (m_nodesEvents.at (ev.key.m_context), ev);
@@ -758,13 +757,6 @@ ListScheduler::IsDeadLock ()
   return true;		
 }
 
-void
-ListScheduler::DecrementInPacket (const Event &ev)
-{
-  uint32_t interface = GetInterface (ev.key.m_prevContext, ev.key.m_context);
-  m_nodes.at (ev.key.m_context).m_inPackets.at (interface) -= 1; 	
-}
-
 bool
 ListScheduler::HasIncomingOnAllInterfaces (uint32_t nodeID)
 {
@@ -862,85 +854,127 @@ ListScheduler::RemoveNextLocalList (void)
       return next;
     }
     
-  if (m_useLocalListv2 == true)
-  {   
-    uint32_t nodeID = 0;
-    while (true)
-      {
-		//front event at this node can safely execute  
-		if (HasIncomingOnAllInterfaces (nodeID))
-		  {
-			m_nodes.at (nodeID).m_isWaiting = false;
-			next = m_nodesEvents.at (nodeID).front ();
-			if (next.key.m_eventType == OUTGOING)
-			  {
-				if (nodeID != next.key.m_prevContext)
-				  {
-				    printf ("Error: Local list v2 !!!!!!!!");
-				  }  
-				uint32_t interface = GetInterface (next.key.m_prevContext, next.key.m_context);
-				m_nodes.at (next.key.m_context).m_inPackets.at (interface) += 1;
-				m_nodesEvents.at (nodeID).pop_front ();
-				next.key.m_eventType = INCOMING;
-				InsertMultiList (m_nodesEvents.at (next.key.m_context), next);
-				m_nodes.at (next.key.m_context).m_isWaiting = false;  
-			  }
-			else
-			  {
-				m_nodesEvents.at (nodeID).pop_front ();
-				return next;  
-			  }    
-		  }
-		//set current nodes to wait status and move to next node 
-		//check if there is deadlock  
-		else
-		  {
-			m_nodes.at (nodeID).m_isWaiting = true;
-			nodeID = (nodeID + 1) % m_nodes.size ();
-			if (IsDeadLock ())
-			  {
-				break;  
-			  }  
-		  }    
-	  }
-  }    
-    
-// Next eligible event is in one of the node lists  
-  for (unsigned i = 0; i < m_nodesEvents.size (); i++)
+  //if (m_useLocalListv2 == true)
+  //{   
+    //uint32_t nodeID = 0;
+    //while (true)
+      //{
+		////front event at this node can safely execute  
+		//if (HasIncomingOnAllInterfaces (nodeID))
+		  //{
+			//m_nodes.at (nodeID).m_isWaiting = false;
+			//next = m_nodesEvents.at (nodeID).front ();
+			//if (next.key.m_eventType == OUTGOING)
+			  //{
+				//if (nodeID != next.key.m_prevContext)
+				  //{
+				    //printf ("Error: Local list v2 !!!!!!!!");
+				  //}  
+				//uint32_t interface = GetInterface (next.key.m_prevContext, next.key.m_context);
+				//m_nodes.at (next.key.m_context).m_inPackets.at (interface) += 1;
+				//m_nodesEvents.at (nodeID).pop_front ();
+				//next.key.m_eventType = INCOMING;
+				//InsertMultiList (m_nodesEvents.at (next.key.m_context), next);
+				//if (HasIncomingOnAllInterfaces (next.key.m_context))
+				  //{
+					//m_nodes.at (next.key.m_context).m_isWaiting = false;  
+				  //}  
+			  //}
+			//else
+			  //{
+				//m_nodesEvents.at (nodeID).pop_front ();
+				//return next;  
+			  //}    
+		  //}
+		////set current nodes to wait status and move to next node 
+		////check if there is deadlock  
+		//else
+		  //{
+			//m_nodes.at (nodeID).m_isWaiting = true;
+			//nodeID = (nodeID + 1) % m_nodes.size ();
+			//if (IsDeadLock ())
+			  //{
+				//break;  
+			  //}  
+		  //}    
+	  //}
+  //}    
+  uint64_t m_lookAhead[4] = {2, 2, 2, 10};
+// Null message
+  while (true)
     {
-	  foundNext = true;	
-      if (!m_nodesEvents.at (m_currNode).empty ())
-        {
-		  next = m_nodesEvents.at (m_currNode).front ();
-		  // Pick the front event of a non-empty node list
-		  // Compare it to the front event of other node lists
-		  for (unsigned j = 0; j < m_nodesEvents.size (); j++)
+	  uint32_t neighbor = m_nodes.at (m_currNode).m_interface.at (0);	
+	  uint64_t minTime = m_clock.at (neighbor) + m_lookAhead[m_currNode];
+	  // Find safe time
+	  for (unsigned i = 1; i < m_nodes.at (m_currNode).m_interface.size (); i++)
+	    {
+		  neighbor = m_nodes.at (m_currNode).m_interface.at (i);	
+		  if (minTime > m_clock.at (neighbor) + m_lookAhead[m_currNode])
 		    {
-			  if (next.key.m_eventType == STOP)
-			    {
-				  foundNext = false;
-				  break;	
-				}		
-			  if (m_currNode != j && !m_nodesEvents.at (j). empty ()
-			      && next.key.m_ts >= m_nodesEvents.at (j).front ().key.m_ts + m_impactLatency.at (m_currNode).at (j))
-			  //if  (m_currNode != j && !m_nodesEvents.at (j). empty ()
-			       //&& !InsertPathReduction (m_nodesEvents.at (j).begin (), next))    
-			    {
-				  foundNext = false;
-				  break;	
-				}    	
+			  minTime = m_clock.at (neighbor) + m_lookAhead[m_currNode];	
 			}
-		  if (foundNext)
-		    {
-			  //printf ("Removing next event: %u - %llu ms, i = %u \n", next.key.m_uid, next.key.m_ts, i);
-			  //printf ("Node list %u size %lu", i, m_nodesEvents.at (i).size ());
-			  m_nodesEvents.at (m_currNode).pop_front ();
-			  m_currNode = (m_currNode + 1) % m_nodesEvents.size();	
-			  return next;	
-			}		
 		}
-	  m_currNode = (m_currNode + 1) % m_nodesEvents.size();	  	 	
-	}
+	  if (!m_nodesEvents.at (m_currNode).empty ())
+	    {	
+		  next = m_nodesEvents.at (m_currNode).front ();
+		  if (next.key.m_ts < minTime) // Next event is safe to run
+			{
+			  //char buf[64];
+			  //snprintf (buf, sizeof(buf), "Next event to execute: id %u - node %u \n", 
+						  //next.key.m_uid, next.key.m_context);	
+			  //s2e_message (buf);
+			  m_nodesEvents.at (m_currNode).pop_front ();
+			  m_clock.at (m_currNode) = next.key.m_ts;	
+			  return next;	
+			}
+		  else // Update local clock time
+			{
+			  if (m_clock.at (m_currNode) < minTime)
+				{
+				  m_clock.at (m_currNode) = minTime;	
+				}	
+			}
+	    }
+	  else // Current node have no event, just update local clock time
+	    {
+		  if (m_clock.at (m_currNode) < minTime)
+			{
+			  m_clock.at (m_currNode) = minTime;	
+			}		
+		}  
+	  // Move to the next node
+	  m_currNode = (m_currNode + 1) % m_nodes.size();		 			
+	}  
+    
+//// Next eligible event is in one of the node lists  
+  //for (unsigned i = 0; i < m_nodesEvents.size (); i++)
+    //{
+	  //foundNext = true;	
+      //if (!m_nodesEvents.at (m_currNode).empty ())
+        //{
+		  //next = m_nodesEvents.at (m_currNode).front ();
+		  //// Pick the front event of a non-empty node list
+		  //// Compare it to the front event of other node lists
+		  //for (unsigned j = 0; j < m_nodesEvents.size (); j++)
+		    //{
+			  //if (m_currNode != j && !m_nodesEvents.at (j). empty ()
+			      //&& next.key.m_ts >= m_nodesEvents.at (j).front ().key.m_ts + m_impactLatency.at (m_currNode).at (j))
+			    //{
+				  //foundNext = false;
+				  //break;	
+				//}    	
+			//}
+		  //if (foundNext)
+		    //{
+			  ////printf ("Removing next event: %u - %llu ms, i = %u \n", next.key.m_uid, next.key.m_ts, i);
+			  ////printf ("Node list %u size %lu", i, m_nodesEvents.at (i).size ());
+			  //m_nodesEvents.at (m_currNode).pop_front ();
+			  //m_currNode = (m_currNode + 1) % m_nodesEvents.size();	
+			  //return next;	
+			//}		
+		//}
+	  //m_currNode = (m_currNode + 1) % m_nodesEvents.size();	  	 	
+	//}
   	  	 		 	    
   //printf ("Error: Shoud not reach this statement \n");
   return next;

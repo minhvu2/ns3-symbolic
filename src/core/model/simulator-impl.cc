@@ -61,5 +61,10 @@ void
 SimulatorImpl::SetFirstSymPacket (uint64_t firstSymPacket)
 {
 }
+
+void
+SimulatorImpl::SetInterfaceInfo (std::vector<std::vector<uint32_t> > interfaces)
+{
+}
 	
 } // namespace ns3

@@ -97,6 +97,22 @@ int main (int argc, char **argv)
   Simulator::SetNumberSymPackets (numpackets);
   Simulator::SetFirstSymPacket (firstSymPacket);
 
+  std::vector <std::vector<uint32_t> > interfaces;
+  interfaces.resize (6);
+  uint32_t node0 [1] = {2};
+  interfaces.at (0).assign (node0, node0+1);
+  uint32_t node1 [1] = {5};
+  interfaces.at (1).assign (node1, node1+1);
+  uint32_t node2 [3] = {0, 3, 4};
+  interfaces.at (2).assign (node2, node2+3);
+  uint32_t node3 [3] = {2, 4, 5};
+  interfaces.at (3).assign (node3, node3+3);
+  uint32_t node4 [3] = {2, 3, 5};
+  interfaces.at (4).assign (node4, node4+3);
+  uint32_t node5 [3] = {4, 3, 1};
+  interfaces.at (5).assign (node5, node5+3);
+  Simulator::SetInterfaceInfo (interfaces);
+
   if (verbose)
     {
       LogComponentEnableAll (LogLevel (LOG_PREFIX_TIME | LOG_PREFIX_NODE));

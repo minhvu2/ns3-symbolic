@@ -194,10 +194,6 @@ void
 DefaultSimulatorImpl::ProcessOneEvent (void)
 {
   Scheduler::Event next = m_events->RemoveNext ();
-  if (next.key.m_eventType == Scheduler::INCOMING)
-    {
-	  ListScheduler::DecrementInPacket (next);
-    }
   // <M>
 //  printf ("After removing next event id %u - %lu ms in ProcessOneEvent-DefaultSimulatorImpl, current ts %lu ms\n", 
 //          next.key.m_uid, next.key.m_ts, m_currentTs);
@@ -224,14 +220,14 @@ DefaultSimulatorImpl::ProcessOneEvent (void)
   next.impl->Invoke ();
   next.impl->Cancel ();
   
-  if (m_implementations.at (4) == true)
-    {
-	  if (next.key.m_eventType == Scheduler::STOP && next.key.m_context != 0xffffffff)
-	    {
-		  uint32_t num = m_events->RemoveAll (next.key.m_context);
-		  m_unscheduledEvents -= num;	
-		}	
-	}
+  //if (m_implementations.at (4) == true)
+    //{
+	  //if (next.key.m_eventType == Scheduler::STOP && next.key.m_context != 0xffffffff)
+	    //{
+		  //uint32_t num = m_events->RemoveAll (next.key.m_context);
+		  //m_unscheduledEvents -= num;	
+		//}	
+	//}
   
   next.impl->Unref ();
 

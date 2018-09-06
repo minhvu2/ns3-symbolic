@@ -103,7 +103,7 @@ PointToPointChannel::TransmitStart (
 
   // <M>
   ListScheduler::SetTransmitEvent (true);
-  ListScheduler::SetEventType (Scheduler::NODE);
+  //ListScheduler::SetEventType (Scheduler::NODE);
   ListScheduler::SetPacketSize (p->GetSize ());
   ListScheduler::SetSymLink (m_link[wire].m_src->GetNode ()->GetId (),
                              m_link[wire].m_dst->GetNode ()->GetId ());

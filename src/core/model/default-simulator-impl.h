@@ -73,6 +73,7 @@ public:
   virtual void SetInterval (uint64_t interval);
   virtual void SetNumberSymPackets (uint32_t numpackets);
   virtual void SetFirstSymPacket (uint64_t firstSymPacket);
+  virtual void SetInterfaceInfo (std::vector<std::vector<uint32_t> > interfaces);
   // <M>
   virtual EventId ScheduleNow (EventImpl *event);
   virtual EventId ScheduleDestroy (EventImpl *event);

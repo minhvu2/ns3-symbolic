@@ -124,7 +124,7 @@ YansWifiChannel::Send (Ptr<YansWifiPhy> sender, Ptr<const Packet> packet, double
           ListScheduler::SetTransmitEvent (true);
           ListScheduler::SetPacketSize (packet->GetSize ());
 
-          Simulator::ScheduleWithContext (dstNode,
+          Simulator::ScheduleWithContext (sender->getDevice ()->GetNode ()->GetId (), dstNode,
                                           delay, &YansWifiChannel::Receive, this,
                                           j, copy, parameters);
         }

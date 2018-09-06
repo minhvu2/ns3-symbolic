@@ -80,8 +80,21 @@ public:
     NODE,
     TIMEOUT,
     STOP,
+    INCOMING,
+    OUTGOING,
     UNDEFINED
   } EventSchedulers_t;
+  
+  /**
+   * Structure for keeping interfaces information of nodes
+   */ 
+  struct Node
+  {
+     uint32_t m_context;	/**< Node id. */
+     bool m_isWaiting;
+     std::vector<uint32_t> m_interface;	/**< Interface number for connected nodes. */
+     std::vector<uint32_t> m_inPackets; /**< Incoming packets at each interface*/	  
+  };
   // <M>
 
   /**
@@ -94,6 +107,7 @@ public:
     uint32_t m_uid;        /**< Event unique id. */
     uint32_t m_context;    /**< Event context. */
     // <M>
+    uint32_t m_prevContext;	/**< For transmission event. */
     uint64_t m_originalTs; /**< Original time stamp before making symbolic. */
     bool m_isTransEvent;   /**< True if event is a transmission event. */
     uint32_t m_packetSize;

@@ -75,9 +75,7 @@ public:
   static void SetFirstSymPacket (uint64_t firstSymPacket);
   static void SetSymLink (uint32_t node1, uint32_t node2);
   static void SetPacketId (uint64_t packetId);
-  static void SetInterfaceInfo (std::vector<std::vector<uint32_t> > interfaces);
-  
-  static void DecrementInPacket (const Scheduler::Event &ev);      
+  static void SetInterfaceInfo (std::vector<std::vector<uint32_t> > interfaces);     
   // <M>
 
   // Inherited
@@ -129,6 +127,7 @@ private:
   /** The node event lists, each node has its own list. */
   std::vector<Events> m_nodesEvents;
   static std::vector<Scheduler::Node> m_nodes;
+  static std::vector<uint64_t> m_clock;
   
   bool InsertPathReduction (EventsI i,const Scheduler::Event &ev);
   void InsertBackToMainList_FrontIsTimeout (Events &subList, const Scheduler::Event &ev);
@@ -144,7 +143,7 @@ private:
   
   bool HasIncomingOnAllInterfaces (uint32_t nodeID);
   bool IsDeadLock ();
-  static uint32_t GetInterface (uint32_t src, uint32_t dst);
+  uint32_t GetInterface (uint32_t src, uint32_t dst);
   // <M>
 };
 
