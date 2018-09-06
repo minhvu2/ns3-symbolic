@@ -71,15 +71,12 @@ void TestCaseGenerator::initialize()
 
 void TestCaseGenerator::onTestCaseGeneration(S2EExecutionState *state, const std::string &message)
 {
-    s2e()->getMessagesStream()
-            << "TestCaseGenerator: processTestCase of state " << state->getID()
-            << " at address " << hexval(state->getPc())
-            << '\n';
-
-    ConcreteInputs out;
-    bool success = s2e()->getExecutor()->getSymbolicSolution(*state, out);
-
 // <M>
+    std::string logString;
+    s2e()->getExecutor()->getConstraintLog(*state, logString, false);
+    s2e()->getMessagesStream()
+                << "Constraints: " << logString << "\n";   
+                
     for (int i = 0; i < state->swtc.size (); i++) {
         klee::ref<klee::Expr> address =state->swtc.at(i); 
 
@@ -88,11 +85,20 @@ void TestCaseGenerator::onTestCaseGeneration(S2EExecutionState *state, const std
         std::pair<klee::ref<klee::Expr>,klee::ref<klee::Expr> > range =
                 solver->getRange(klee::Query(state->constraints,address));       
         s2e()->getMessagesStream()
-                << "Range of State : " << state->getID()
+                << "State : " << state->getID()
                 << "\trange: " << range.first << ", "
-                << range.second  << "\n";
+                << range.second  << "\n";            
     }        
 // <M>
+	
+    s2e()->getMessagesStream()
+            << "TestCaseGenerator: processTestCase of state " << state->getID()
+            << " at address " << hexval(state->getPc())
+            << '\n';
+
+    ConcreteInputs out;
+    bool success = s2e()->getExecutor()->getSymbolicSolution(*state, out);
+
     if (!success) {
         s2e()->getWarningsStream() << "Could not get symbolic solutions" << '\n';
         return;
