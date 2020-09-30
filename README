@@ -34,7 +34,7 @@ $ $S2EDIR/build/qemu-release/i386-softmmu/qemu-system-i386 ns3_disk.raw -enable-
 $ ln ns3_disk.raw ns3_disk.raw.s2e
 
 
-2) Building ns-3
+3) Building ns-3
 -------------------------
 $ $S2EDIR/build/qemu-release/i386-softmmu/qemu-system-i386 ns3_disk.raw
 
@@ -54,7 +54,7 @@ $ ./waf build
 $ $S2EDIR/build/qemu-release/i386-softmmu/qemu-system-i386 -net none ns3_disk.raw.s2e
 
 
-3) Running ns-3 with uncertain delays
+4) Running ns-3 with uncertain delays
 -------------------------
 
 $ $S2EDIR/build/qemu-release/i386-s2e-softmmu/qemu-system-i386 -net none ns3_disk.raw.s2e -loadvm snapshot_name s2e-config-file config.lua
@@ -64,7 +64,7 @@ $ $S2EDIR/build/qemu-release/i386-s2e-softmmu/qemu-system-i386 -net none ns3_dis
 $ ./waf --run "simulation-script -first=f -num=n -interval=i"
 
 
-4) Notes
+5) Notes
 -------------------------
 The simulation scripts are located in scratch folder.
 scratch/simple-error-model.cc
