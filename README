@@ -1,34 +1,75 @@
 
-    The Network Simulator, Version 3
+    The Network Simulator ns-3 with uncertain delays
     --------------------------------
 
-Table of Contents:
-------------------
 
-1) An overview
-2) Building ns-3
-3) Running ns-3
-
-
-1) An overview
+1) Building S2E
 -------------------------
 
-ns-3 with symbolic delays
+$ apt-get install build-essential subversion git gettext liblua5.1-0-dev libsdl1.2-dev libsigc++-2.0-dev binutils-dev python-docutils python-pygments nasm libiberty-dev libc6-dev-i386
+
+$ apt-get build-dep llvm-3.3 qemu
+
+$ git clone https://github.com/S2E/s2e-old.git
+
+$ cd $S2EDIR
+
+$ mkdir $S2EDIR/build
+
+$ cd $S2EDIR/build
+
+$ make -f ../s2e/Makefile
+
+
+2) Preparing a Linux VM image
+-------------------------
+
+$ $S2EDIR/build/qemu-release/qemu-img create -f raw s2e_disk.raw 8G
+
+# Download the minimal Ubuntu 16.04 iso image
+
+# Run QEMU and install the OS
+$ $S2EDIR/build/qemu-release/i386-softmmu/qemu-system-i386 ns3_disk.raw -enable-kvm -m 1024 -cdrom image.iso
+
+$ ln ns3_disk.raw ns3_disk.raw.s2e
+
 
 2) Building ns-3
-----------------
+-------------------------
+$ $S2EDIR/build/qemu-release/i386-softmmu/qemu-system-i386 ns3_disk.raw
 
 $ apt-get install gcc g++ python  mercurial bzr cmake unzip p7zip-full autoconf git cvs unrar-free libssl-dev flex bison pkg-config libdb-dev
 
+$ git clone https://github.com/minhvu2/ns3-symbolic.git
+
+$ cd ns3-symbolic
+
 $ ./waf configure --enable-examples -d optimized
 
-$ ./waf build 
+$ ./waf build
+
+# Shutdown the VM after finishing buiding ns-3
+
+# Boot VM in S2E format and save a snapshot
+$ $S2EDIR/build/qemu-release/i386-softmmu/qemu-system-i386 -net none ns3_disk.raw.s2e
 
 
-3) Running ns-3
----------------
+3) Running ns-3 with uncertain delays
+-------------------------
 
-$ ./waf --run "simulation-script -argument=value"
+$ $S2EDIR/build/qemu-release/i386-s2e-softmmu/qemu-system-i386 -net none ns3_disk.raw.s2e -loadvm snapshot_name s2e-config-file config.lua
+
+# Run ns-3 with uncertain delays, f: first packet to have uncertain delay,
+# n: number of uncertain delays, i: max interval of uncertain delays
+$ ./waf --run "simulation-script -first=f -num=n -interval=i"
+
+
+4) Notes
+-------------------------
+The simulation scripts are located in scratch folder.
+scratch/simple-error-model.cc
+scratch/tcp-bulk-send.cc
+scratch/rip-simple-network.cc
 
 
 

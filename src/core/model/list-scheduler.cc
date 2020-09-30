@@ -477,10 +477,10 @@ ListScheduler::Insert (const Event &ev)
   NS_LOG_FUNCTION (this << &ev);
   if (!m_isNodeVectorInitialized)
     {
-	  uint64_t inf = 100000000;	
+	  //uint64_t inf = 100000000;	
 	  // tcp-bulk-send
-	  //uint64_t impactLatencyMatrix [2][2] = {{0, 5}, 
-	                                         //{5, 0}};
+	  uint64_t impactLatencyMatrix [2][2] = {{0, 0}, 
+	                                         {0, 0}};
 	                                         	                                        	                                         
 	  // rip-simple-network
 	  //uint64_t impactLatencyMatrix [6][6] = {{0, 8, 2, 4, 4, 6}, 
@@ -491,10 +491,10 @@ ListScheduler::Insert (const Event &ev)
 	                                         //{6, 2, 4, 2, 2, 0}};
 	                                         
 	  // simple-error-model
-	  uint64_t impactLatencyMatrix [4][4] = {{0, inf, 2, inf}, 
-	                                         {inf, 0, 2, 13},
-	                                         {2, 2, 0, 11},
-	                                         {inf, 13, 11, 0}};
+	  //uint64_t impactLatencyMatrix [4][4] = {{0, inf, 2, inf}, 
+	                                         //{inf, 0, 2, 13},
+	                                         //{2, 2, 0, 11},
+	                                         //{inf, 13, 11, 0}};
 	  //uint64_t impactLatencyMatrix [4][4] = {{0, inf, 0, inf}, 
 	                                         //{inf, 0, 0, 0},
 	                                         //{0, 0, 0, 0},
