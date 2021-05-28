@@ -922,7 +922,7 @@ ListScheduler::RemoveNextLocalList (void)
 				  break;	
 				}		
 			  if (m_currNode != j && !m_nodesEvents.at (j). empty ()
-			      && next.key.m_ts >= m_nodesEvents.at (j).front ().key.m_ts + m_impactLatency.at (m_currNode).at (j))
+			      && next.key.m_ts > m_nodesEvents.at (j).front ().key.m_ts + m_impactLatency.at (m_currNode).at (j))
 			  //if  (m_currNode != j && !m_nodesEvents.at (j). empty ()
 			       //&& !InsertPathReduction (m_nodesEvents.at (j).begin (), next))    
 			    {
